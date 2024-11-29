@@ -1,0 +1,20 @@
+version: '3.8'
+
+networks:
+  bf-net:
+    driver: bridge
+
+services:
+  dockertrap:
+    build: .
+    volumes:
+      - ./src/bountyforge:/app/bountyforge
+    ports:
+      - ${APP__PORT}:${APP__PORT}
+    restart: unless-stopped
+    environment:
+      APP__HOST: 0.0.0.0
+      APP__PORT: ${APP__PORT}
+      LOGGING__LEVEL: DEBUG
+    networks:
+      - bf-net

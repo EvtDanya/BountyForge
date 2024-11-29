@@ -1,0 +1,19 @@
+app:
+    host: 0.0.0.0
+    port: 8080
+
+    # not required params
+    timeout: 120
+    path_to_static: ./static
+    minimal_client_version: 1.12
+    workers: 2
+    threads: 2
+    
+
+
+logging:
+    level: INFO
+    syslog_enabled: false
+
+    # can be null
+    file_path: /var/log/honeypot/honeypot.log
