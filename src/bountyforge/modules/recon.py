@@ -39,3 +39,14 @@ class ReconModule:
         """
         live_subdomains = []
         return live_subdomains
+
+def run(target: str) -> dict:
+    """
+    Простейшая функция разведки: возвращает базовую информацию о цели.
+    В дальнейшем можно расширить, добавив вызовы к API, проверку DNS, WHOIS и т.д.
+    """
+    # Пока возвращаем фиктивные данные
+    return {
+        "target": target,
+        "info": f"Собрана базовая информация о {target}"
+    }
