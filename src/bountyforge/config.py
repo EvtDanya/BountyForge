@@ -14,11 +14,11 @@ logger = logging.getLogger('bountyforge')
 @dataclass
 class BountyForge(object):
     host: str = "0.0.0.0"
-    port: int = 8888
+    port: int = 8080
     workers: int = 1
-    threads: int = 1
+    threads: int = 2
     timeout: int = 120
-    project_version: str = "0.0.1"
+    project_version: str = "0.0.2"
 
     def __post_init__(self):
         if isinstance(self.port, str):

@@ -1,5 +1,15 @@
 # BountyForge
 
+## Запуск
+
+```bash
+$env:PYTHONPATH="D:\My\Projects\BountyForge\src"
+py .\src\bountyforge\scripts\run.py
+```
+
+## В работе
+
+
 ```
 bountyforge/
 ├── app/                  # Основной код

@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from bountyforge.modules import recon, scanner_web, attack
+from bountyforge.modules import reconnaissance, scanner_web, attack
 
 router = APIRouter()
 
@@ -14,7 +14,7 @@ async def simulate_attack(target: str):
       - сгенерированный сценарий атаки (имитация вызова LLM)
     """
     # Сбор информации о цели (разведка)
-    recon_results = recon.run(target)
+    recon_results = reconnaissance.run(target)
 
     # Выполнение веб-сканирования (например, проверка базового HTTP-запроса)
     web_scan_results = scanner_web.run_scan(target)

@@ -1,17 +1,24 @@
 import logging
 import flask
-import gunicorn.app.base
+# import gunicorn.app.base
 
 from . import utils
 from .config import settings
 
 from fastapi import FastAPI
-from bountyforge.api import endpoints
+# from bountyforge.api import endpoints
 
 logger = logging.getLogger('bountyforge')
 
 utils.init_logging(logger)
 
+# import uvicorn
+# uvicorn.run(
+#     "bountyforge.main:app",
+#     host=settings.app.host,
+#     port=settings.app.port,
+#     reload=True
+# )
 
 # class StandaloneGunicornApp(gunicorn.app.base.BaseApplication):
 #     def __init__(self, app, options=None):
@@ -31,15 +38,15 @@ utils.init_logging(logger)
 #         return self.application
 
 
-# def create_app():
-#     logger.info(
-#         f'Starting server on: {settings.app.host}:{settings.app.port}'
-#     )
+def create_app():
+    logger.info(
+        f'Starting server on: {settings.app.host}:{settings.app.port}'
+    )
 
-#     app = flask.Flask(__name__)
-#     app.register_blueprint(main_router)
+    app = flask.Flask(__name__)
+    # app.register_blueprint(main_router)
 
-#     return app
+    return app
 
 
 # if __name__ == "__main__":
@@ -49,15 +56,10 @@ utils.init_logging(logger)
 #         port=settings.app.port
 #     )
 
-app = FastAPI(title="BountyForge Web PenTest Backend")
+# app = FastAPI(title="BountyForge Web PenTest Backend")
 
-app.include_router(endpoints.router)
+# app.include_router(endpoints.router)
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "bountyforge.main:app",
-        host=settings.app.host,
-        port=settings.app.port,
-        reload=True
-    )
+    app = create_app()
+    app.run()

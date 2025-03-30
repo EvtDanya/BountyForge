@@ -1,13 +1,14 @@
 import logging
+import uvicorn
 
-from dockertrap.config import settings
-from dockertrap.main import create_app, StandaloneGunicornApp
+from bountyforge.config import settings
+from bountyforge.main import create_app
 
 logger = logging.getLogger("bountyforge")
 
 
-def run():
-    logger.info("Starting app with Gunicorn...")
+def run() -> None:
+    logger.info("Starting web app...")
 
     options = {
         "bind": f"{settings.app.host}:{settings.app.port}",
@@ -20,7 +21,8 @@ def run():
     }
 
     app = create_app()
-    StandaloneGunicornApp(app, options).run()
+    app.run()
+    # StandaloneGunicornApp(app, options).run()
 
 
 if __name__ == "__main__":
