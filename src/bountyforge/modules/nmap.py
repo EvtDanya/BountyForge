@@ -1,40 +1,50 @@
-import subprocess
 import logging
-from typing import Dict, Any
-
-from bountyforge.core.module_base import Module
+from typing import List, Union
+from bountyforge.core.module_base import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
 
 
 class NmapModule(Module):
     """
-    Module for running an Nmap scan.
+    Nmap scanning module.
 
-    Configuration:
-        scan_type: Type of scanning (e.g., 'aggressive' or 'default')
+    This module performs an Nmap scan
     """
+    def __init__(
+        self,
+        scan_type: ScanType,
+        target: Union[str, List[str]],
+        target_type: TargetType = TargetType.SINGLE,
+        additional_flags: List[str] = None
+    ) -> None:
+        super().__init__(scan_type, target, target_type, additional_flags)
 
-    def __init__(self, scan_type: str = "default"):
-        self.scan_type = scan_type
+    def _build_command(self, target_str: str) -> List[str]:
+        super()._build_command(target_str)
 
-    def execute(self, target: str) -> Dict[str, Any]:
-        """
-        Execute the Nmap scan for the given target.
+        command = ["nmap", "-Pn"]
 
-        :param target: The target address or domain.
-        :return: A dictionary containing the scan output.
-        """
-        logger.info(f"Running Nmap (type: {self.scan_type}) for target: {target}")
-        try:
-            # Example call to nmap; parameters may be adjusted based on scan_type.
-            command = ["nmap", "-Pn", target]
-            if self.scan_type == "aggressive":
-                command.append("-A")
-            process = subprocess.run(command, capture_output=True, text=True, check=True)
-            result = {"output": process.stdout}
-            logger.info("Nmap scan completed successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error executing Nmap: {e}")
-            result = {"error": str(e)}
-        return result
+        match self.scan_type:
+            case ScanType.AGGRESSIVE:
+                # Aggressive scan: faster timing, version detection,
+                # OS detection, script scanning
+                command.extend(["-T4", "-A", "-sV"])
+            case ScanType.FULL:
+                # Full port scan on all ports with aggressive flags
+                command.extend(["-p-", "-T4", "-A", "-sV"])
+            case _:
+                command.extend(["-T4", "-sV"])
+
+        match self.target_type:
+            case TargetType.FILE:
+                command.extend(["-iL", target_str])
+            case TargetType.SINGLE | TargetType.MULTIPLE:
+                command.append(target_str)
+            case _:
+                command.append(target_str)
+
+        if self.additional_flags:
+            command.extend(self.additional_flags)
+
+        return command

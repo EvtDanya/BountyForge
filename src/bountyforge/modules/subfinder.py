@@ -1,25 +1,41 @@
 import logging
-from typing import Dict, Any
-from core.module_base import Module
+from typing import List, Union
+from bountyforge.core.module_base import Module, ScanType, TargetType
+
+logger = logging.getLogger(__name__)
 
 
-class SubdomainReconModule(Module):
-    """Модуль для поиска и фильтрации поддоменов."""
+class SubfinderModule(Module):
+    """
+    Module for passive subdomain enumeration using subfinder
 
-    def run(self, target: str) -> Dict[str, Any]:
-        logging.info(f"Начало разведки поддоменов для {target}")
-        # Здесь можно интегрировать вызов стороннего инструмента или реализовать собственную логику
-        # Для примера возвращаем статический результат
-        result = {
-            "target": target,
-            "subdomains": [
-                f"www.{target}",
-                f"api.{target}",
-                f"admin.{target}"
-            ]
-        }
-        logging.info(f"Результаты разведки: {result}")
-        return result
+    The scan_type is fixed to RECON by default
+    """
+    def __init__(
+        self,
+        target: Union[str, List[str]],
+        target_type: TargetType = TargetType.SINGLE,
+        additional_flags: List[str] = None
+    ) -> None:
+        super().__init__(ScanType.RECON, target, target_type, additional_flags)
+
+    def _build_command(self, target_str: str) -> List[str]:
+        super()._build_command(target_str)
+
+        command = ["subfinder", "-silent", "-all"]
+
+        match self.target_type:
+            case TargetType.FILE:
+                command.extend(["-dL", target_str])
+            case TargetType.SINGLE | TargetType.MULTIPLE:
+                command.append(["-d", target_str])
+            case _:
+                command.append(["-d", target_str])
+
+        if self.additional_flags:
+            command.extend(self.additional_flags)
+
+        return command
 
 # class ReconAbstractModule(abc.ABC):
 #     """
@@ -62,7 +78,8 @@ class SubdomainReconModule(Module):
 # def run(target: str) -> dict:
 #     """
 #     Простейшая функция разведки: возвращает базовую информацию о цели.
-#     В дальнейшем можно расширить, добавив вызовы к API, проверку DNS, WHOIS и т.д.
+#     В дальнейшем можно расширить,
+# добавив вызовы к API, проверку DNS, WHOIS и т.д.
 #     """
 #     # Пока возвращаем фиктивные данные
 #     return {

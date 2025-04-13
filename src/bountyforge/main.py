@@ -39,6 +39,26 @@ utils.init_logging(logger)
 
 
 def create_app():
+    logger.info(f"Starting server on: {settings.app.host}:{settings.app.port}")
+    app = flask.Flask(__name__)
+
+    # Регистрируем сканирующие модули через ModuleManager
+    module_manager = ModuleManager(settings.scanners)
+    module_manager.load_modules()
+
+    # Опционально: можем создать и настроить Engine для последовательного запуска модулей
+    engine = Engine()
+    for module in module_manager.modules.values():
+        engine.register_module(module)
+
+    # Запускаем все модули для тестового target (например, "example.com")
+    engine.run("example.com")
+
+    # Далее можно зарегистрировать blueprints или API-эндпоинты для веб-интерфейса
+    return app
+
+
+def create_app():
     logger.info(
         f'Starting server on: {settings.app.host}:{settings.app.port}'
     )

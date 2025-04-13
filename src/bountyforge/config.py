@@ -3,7 +3,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from dataclasses import fields as dc_fields
 from pathlib import Path
-from typing import Self
+from typing import Self, Dict, Any
 
 import yaml
 from dotenv import load_dotenv
@@ -35,6 +35,26 @@ class BountyForge(object):
 
 
 @dataclass
+class ScannerSettings:
+    """
+    Configuration for scanner modules.
+
+    This includes settings for individual scanning modules.
+    """
+    nmap: Dict[str, Any] = field(default_factory=lambda: {
+        "scan_type": "default",  # Options: "default", "aggressive", "full"
+        "additional_flags": []  # List of additional Nmap flags
+    })
+    subfinder: Dict[str, Any] = field(default_factory=lambda: {
+        "additional_flags": []  # Additional flags for subfinder
+    })
+    subdomain_bruteforce: Dict[str, Any] = field(default_factory=lambda: {
+        "wordlist": "subdomains.txt",  # Path to wordlist for brute forcing
+        "additional_flags": []  # Additional flags for brute force tool
+    })
+
+
+@dataclass
 class LoggingConfig(object):
     level: int = logging.INFO
     file_path: str | None = None
@@ -58,6 +78,7 @@ class Config(object):
     """
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     app: BountyForge = field(default_factory=BountyForge)
+    scanners: ScannerSettings = field(default_factory=ScannerSettings)
 
     def __post_init__(self):
         attrs = [(field.name, field.type) for field in dc_fields(self)]
