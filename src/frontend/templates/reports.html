@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Reports</h1>
+  <ul class="list-group">
+    {% for report in reports %}
+    <li class="list-group-item">
+      <strong>{{ report.title }}</strong> ({{ report.date }})
+    </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

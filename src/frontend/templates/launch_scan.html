@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Launch Scan</h1>
+  <form id="scanForm">
+    <div class="mb-3">
+      <label for="target" class="form-label">Target (URL/IP or comma-separated for multiple):</label>
+      <input type="text" class="form-control" id="target" name="target" placeholder="example.com, test.com">
+    </div>
+    <div class="mb-3">
+      <label for="target_type" class="form-label">Target Type:</label>
+      <select class="form-select" id="target_type" name="target_type">
+        <option value="single">Single</option>
+        <option value="multiple">Multiple</option>
+        <option value="file">File (provide path)</option>
+      </select>
+    </div>
+
+    <!-- Опции для утилит -->
+    <h4>Select Tools</h4>
+    <div class="mb-3">
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="tool_nmap" name="tools" value="nmap">
+        <label class="form-check-label" for="tool_nmap">Nmap</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="tool_subfinder" name="tools" value="subfinder">
+        <label class="form-check-label" for="tool_subfinder">Subfinder</label>
+      </div>
+      <!-- Добавьте другие инструменты по необходимости -->
+    </div>
+
+    <!-- Дополнительные настройки для каждого инструмента можно скрыть/показать динамически -->
+    <div id="nmap_settings" class="mb-3 tool-settings d-none">
+      <h5>Nmap Settings</h5>
+      <div class="mb-2">
+        <label class="form-label">Scan Mode:</label>
+        <select class="form-select" name="nmap_mode">
+          <option value="default">Default</option>
+          <option value="aggressive">Aggressive</option>
+          <option value="full">Full</option>
+        </select>
+      </div>
+      <div class="mb-2">
+        <label class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" name="nmap_flags" placeholder="-v">
+      </div>
+    </div>
+
+    <div id="subfinder_settings" class="mb-3 tool-settings d-none">
+      <h5>Subfinder Settings</h5>
+      <div class="mb-2">
+        <label class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" name="subfinder_flags" placeholder="">
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Start Scan</button>
+  </form>
+
+  <div id="scanResult" class="mt-4"></div>
+
+  <script>
+    // Простая логика для показа/скрытия настроек в зависимости от выбранного инструмента
+    document.getElementById('tool_nmap').addEventListener('change', function() {
+      document.getElementById('nmap_settings').classList.toggle('d-none', !this.checked);
+    });
+    document.getElementById('tool_subfinder').addEventListener('change', function() {
+      document.getElementById('subfinder_settings').classList.toggle('d-none', !this.checked);
+    });
+
+    // Отправка формы через AJAX
+    document.getElementById('scanForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = {};
+      formData.forEach((value, key) => {
+        if(data[key]) {
+          if(typeof data[key] === 'string'){
+            data[key] = [data[key]];
+          }
+          data[key].push(value);
+        } else {
+          data[key] = value;
+        }
+      });
+      fetch('/api/start_scan', {  // Убедитесь, что маршрут API корректен
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(json => {
+        document.getElementById('scanResult').innerHTML = `<pre>${JSON.stringify(json, null, 2)}</pre>`;
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    });
+  </script>
+{% endblock %}

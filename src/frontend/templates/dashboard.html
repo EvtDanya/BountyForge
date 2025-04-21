@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="mb-4">
+    <h2>Dashboard</h2>
+    <p>Welcome to BountyForge. Monitor your scan status, view statistics, and manage your scans here.</p>
+    <!-- Button to open launch-scan modal -->
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#launchScanModal">
+      <i class="fas fa-play me-2"></i>Launch Scan
+    </button>
+  </div>
+
+  <div class="row">
+    <!-- System Status card -->
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card text-white bg-primary h-100 shadow-sm">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title mb-0"><i class="fas fa-signal me-2"></i>System Status</h5>
+            <button id="checkModulesBtn" class="btn btn-light btn-sm">
+              <i class="fas fa-sync-alt"></i> Check Modules
+            </button>
+          </div>
+          <small class="text-light mb-3">Click to verify that all scan modules are up.</small>
+          <div id="moduleStatus" class="mt-auto">
+            <!-- Здесь появится список модулей -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Last Scan card -->
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card text-white bg-success h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title"><i class="fas fa-rocket me-2"></i>Last Scan</h5>
+          <p class="card-text">example.com – Nmap scan finished successfully.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics card -->
+    <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card text-white bg-warning h-100 shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Statistics</h5>
+          <p class="card-text">7 scans conducted today across 20 targets.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Launch Scan Modal -->
+  <div class="modal fade" id="launchScanModal" tabindex="-1" aria-labelledby="launchScanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="scanForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="launchScanModalLabel">Launch Scan</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Target Type -->
+            <div class="mb-3">
+              <label for="target_type" class="form-label">Target Type:</label>
+              <select class="form-select" id="target_type" name="target_type">
+                <option value="single">Single</option>
+                <option value="multiple">Multiple</option>
+                <option value="file">File (upload .txt)</option>
+              </select>
+            </div>
+
+            <!-- Single target input -->
+            <div class="mb-3" id="single_target_group">
+              <label for="target_single" class="form-label">Target:</label>
+              <input type="text" class="form-control" id="target_single" name="target" placeholder="example.com">
+            </div>
+
+            <!-- Multiple targets textarea -->
+            <div class="mb-3 d-none" id="multiple_target_group">
+              <label for="target_multiple" class="form-label">Targets (one per line):</label>
+              <textarea class="form-control" id="target_multiple" rows="5"
+                        placeholder="example.com
+test.com
+sub.domain.com"></textarea>
+            </div>
+
+            <!-- File input for file mode -->
+            <div class="mb-3 d-none" id="file_target_group">
+              <label for="target_file" class="form-label">Upload targets file:</label>
+              <input type="file" class="form-control" id="target_file" name="target_file" accept=".txt">
+              <small class="form-text text-muted">One host/IP per line.</small>
+            </div>
+
+            <!-- Tool selection -->
+            <h4>Select Tools</h4>
+            <div class="mb-3">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_nmap" name="tools" value="nmap">
+                <label class="form-check-label" for="tool_nmap">Nmap</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_subfinder" name="tools" value="subfinder">
+                <label class="form-check-label" for="tool_subfinder">Subfinder</label>
+              </div>
+              <!-- add more tools as needed -->
+            </div>
+
+            <!-- Nmap settings -->
+            <div id="nmap_settings" class="mb-3 tool-settings d-none">
+              <h5>Nmap Settings</h5>
+              <div class="mb-2">
+                <label class="form-label">Scan Mode:</label>
+                <select class="form-select" name="nmap_mode">
+                  <option value="default">Default</option>
+                  <option value="aggressive">Aggressive</option>
+                  <option value="full">Full</option>
+                </select>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Additional Flags:</label>
+                <input type="text" class="form-control" name="nmap_flags" placeholder="-v">
+              </div>
+            </div>
+
+            <!-- Subfinder settings -->
+            <div id="subfinder_settings" class="mb-3 tool-settings d-none">
+              <h5>Subfinder Settings</h5>
+              <div class="mb-2">
+                <label class="form-label">Additional Flags:</label>
+                <input type="text" class="form-control" name="subfinder_flags" placeholder="">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Start Scan</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scan result output -->
+  <div id="scanResult" class="mt-4"></div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const targetTypeEl      = document.getElementById('target_type');
+      const singleGroup       = document.getElementById('single_target_group');
+      const multipleGroup     = document.getElementById('multiple_target_group');
+      const fileGroup         = document.getElementById('file_target_group');
+      const scanForm          = document.getElementById('scanForm');
+      const scanResult        = document.getElementById('scanResult');
+      const toolNmap          = document.getElementById('tool_nmap');
+      const toolSubfinder     = document.getElementById('tool_subfinder');
+      const nmapSettings      = document.getElementById('nmap_settings');
+      const subfinderSettings = document.getElementById('subfinder_settings');
+
+      const BACKEND_CHECK_MODULES = "{{ api_check_modules_url }}";
+      const btn = document.getElementById('checkModulesBtn');
+      const statusContainer = document.getElementById('moduleStatus');
+
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+        statusContainer.innerHTML = '';
+        try {
+          const resp = await fetch(BACKEND_CHECK_MODULES, {
+            method: 'GET',
+            headers: {
+              'Authorization': 'Bearer ' + '{{ session.jwt_token }}'
+            }
+          });
+          const data = await resp.json();
+          // Ожидаем что data — объект { nmap: true, subfinder: false, httpx: true, ... }
+          const ul = document.createElement('ul');
+          ul.className = 'list-unstyled mb-0';
+          for (const [mod, ok] of Object.entries(data)) {
+            const li = document.createElement('li');
+            const icon = ok
+              ? '<i class="fas fa-check-circle text-success"></i>'
+              : '<i class="fas fa-times-circle text-danger"></i>';
+            li.innerHTML = `${icon} <strong>${mod}</strong>`;
+            ul.appendChild(li);
+          }
+          statusContainer.appendChild(ul);
+        } catch (e) {
+          statusContainer.innerHTML = `<div class="text-danger">Error checking modules</div>`;
+          console.error(e);
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Modules';
+        }
+      });
+
+      // Toggle input groups
+      targetTypeEl.addEventListener('change', () => {
+        singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
+        multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
+        fileGroup.classList.toggle('d-none', targetTypeEl.value !== 'file');
+      });
+
+      // Toggle tool‑specific settings
+      toolNmap.addEventListener('change', () => {
+        nmapSettings.classList.toggle('d-none', !toolNmap.checked);
+      });
+      toolSubfinder.addEventListener('change', () => {
+        subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
+      });
+
+      // Handle form submission
+      scanForm.addEventListener('submit', async e => {
+        e.preventDefault();
+
+        let targets, targetType = targetTypeEl.value;
+
+        if (targetType === 'file') {
+          const fileInput = document.getElementById('target_file');
+          if (!fileInput.files.length) {
+            return alert('Please select a file');
+          }
+          const fd = new FormData();
+          fd.append('target_file', fileInput.files[0]);
+          const uploadResp = await fetch('/upload_targets', {
+            method: 'POST',
+            credentials: 'include',
+            body: fd
+          });
+          if (!uploadResp.ok) {
+            const err = await uploadResp.json();
+            return alert('File upload failed: ' + err.error);
+          }
+          const { targets: list } = await uploadResp.json();
+          targets = list;
+          targetType = 'multiple';
+        } else if (targetType === 'multiple') {
+          const raw = document.getElementById('target_multiple').value.trim();
+          if (!raw) {
+            return alert('Please enter targets');
+          }
+          targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        } else {
+          const raw = document.getElementById('target_single').value.trim();
+          if (!raw) {
+            return alert('Please enter a target');
+          }
+          targets = raw;
+        }
+
+        // collect tools
+        const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
+                           .map(chk => chk.value);
+
+        // build params (unchanged)
+
+        const params = {};
+        if (tools.includes('nmap')) {
+          params.nmap = {
+            scan_type: scanForm.querySelector('select[name="nmap_mode"]').value,
+            additional_flags: scanForm.querySelector('input[name="nmap_flags"]').value
+          };
+        }
+        if (tools.includes('subfinder')) {
+          params.subfinder = {
+            additional_flags: scanForm.querySelector('input[name="subfinder_flags"]').value
+          };
+        }
+
+        const payload = {
+          target: targets,
+          target_type: targetType,
+          tools,
+          params
+        };
+
+        const BACKEND_START_SCAN = '{{ api_start_scan_url }}';
+        try {
+          const resp = await fetch(BACKEND_START_SCAN, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer {{ session.jwt_token }}'
+            },
+            body: JSON.stringify(payload)
+          });
+          const result = await resp.json();
+          scanResult.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+          bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
+        } catch (err) {
+          console.error(err);
+          scanResult.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
+        }
+      });
+    });
+  </script>
+{% endblock %}

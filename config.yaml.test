@@ -1,0 +1,23 @@
+app:
+  host: 0.0.0.0
+  port: 8888
+  project_version: 0.0.2
+  threads: 2
+  timeout: 200
+  workers: 2
+logging:
+  file_path: null
+  level: 10
+  syslog_enabled: false
+scanners:
+  httpx:
+    additional_flags: ''
+    mode: recon
+  nmap:
+    additional_flags: ''
+    scan_type: aggressive
+  subdomain_bruteforce:
+    additional_flags: ''
+    wordlist: subdomains.txt
+  subfinder:
+    additional_flags: ''

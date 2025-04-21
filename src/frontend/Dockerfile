@@ -1,0 +1,26 @@
+# syntax=docker/dockerfile:1
+
+FROM python:3.12-slim-bookworm
+
+WORKDIR /app
+
+ARG FRONTEND__PORT
+
+COPY ./requirements.txt ./requirements.txt
+# COPY ./pyproject.toml ./pyproject.toml
+RUN ["python", "-m", "pip", "install", "-r", "requirements.txt"]
+# RUN ["poetry", "install"]
+
+COPY ./src/bountyforge ./bountyforge
+COPY ./src/frontend ./frontend
+# COPY ./static ./static
+ENV PYTHONPATH="/app/"
+
+RUN mkdir -p /var/log/bountyforge
+
+COPY ./src/frontend/app.py ./app.py
+
+EXPOSE $APP__PORT
+
+CMD ["python", "app.py"]
+# CMD ["poetry", "run", "python", "app.py"]

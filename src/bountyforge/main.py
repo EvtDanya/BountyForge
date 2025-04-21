@@ -1,12 +1,12 @@
 import logging
 import flask
+from flask_cors import CORS
+from datetime import timedelta
 # import gunicorn.app.base
 
 from . import utils
 from .config import settings
-
-from fastapi import FastAPI
-# from bountyforge.api import endpoints
+from .api import config_api, jwt
 
 logger = logging.getLogger('bountyforge')
 
@@ -38,48 +38,50 @@ utils.init_logging(logger)
 #         return self.application
 
 
-def create_app():
-    logger.info(f"Starting server on: {settings.app.host}:{settings.app.port}")
-    app = flask.Flask(__name__)
-
-    # Регистрируем сканирующие модули через ModuleManager
-    module_manager = ModuleManager(settings.scanners)
-    module_manager.load_modules()
-
-    # Опционально: можем создать и настроить Engine для последовательного запуска модулей
-    engine = Engine()
-    for module in module_manager.modules.values():
-        engine.register_module(module)
-
-    # Запускаем все модули для тестового target (например, "example.com")
-    engine.run("example.com")
-
-    # Далее можно зарегистрировать blueprints или API-эндпоинты для веб-интерфейса
-    return app
-
-
-def create_app():
+def create_app() -> flask.Flask:
     logger.info(
-        f'Starting server on: {settings.app.host}:{settings.app.port}'
+        f"Starting backend server on: "
+        f"{settings.backend.host}:{settings.backend.port}"
     )
-
     app = flask.Flask(__name__)
-    # app.register_blueprint(main_router)
+    app.config['JWT_SECRET_KEY'] = settings.backend.session_secret_key
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] =\
+        timedelta(hours=settings.backend.session_lifetime)
+
+    jwt.init_app(app)
+
+    CORS(
+        app,
+        resources={
+            r"/api/*": {
+                "origins": f"http://{settings.frontend.host}:{settings.frontend.port}",  # noqa
+                "allow_headers": ["Authorization", "Content-Type"],
+                "supports_credentials": True
+            }
+        }
+    )
+    app.register_blueprint(config_api)
+
+    # # Регистрируем сканирующие модули через ModuleManager
+    # module_manager = ModuleManager(settings.scanners)
+    # module_manager.load_modules()
+
+    # # Опционально: можем создать и настроить Engine
+    # для последовательного запуска модулей
+    # engine = Engine()
+    # for module in module_manager.modules.values():
+    #     engine.register_module(module)
+
+    # # Запускаем все модули для тестового target (например, "example.com")
+    # engine.run("example.com")
 
     return app
 
-
-# if __name__ == "__main__":
-#     app = create_app()
-#     app.run(
-#         host=settings.app.host,
-#         port=settings.app.port
-#     )
-
-# app = FastAPI(title="BountyForge Web PenTest Backend")
-
-# app.include_router(endpoints.router)
 
 if __name__ == "__main__":
     app = create_app()
-    app.run()
+    app.run(
+        host=settings.backend.host,
+        port=settings.backend.port,
+        debug=settings.backend.is_debug
+    )

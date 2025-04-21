@@ -11,16 +11,60 @@ from dotenv import load_dotenv
 logger = logging.getLogger('bountyforge')
 
 
+# @dataclass
+# class BountyForge(object):
+#     host: str = "0.0.0.0"
+#     port: int = 5000
+#     workers: int = 1
+#     threads: int = 1
+#     timeout: int = 120
+#     project_version: str = "0.0.8"
+
+#     def __post_init__(self):
+#         if isinstance(self.port, str):
+#             self.port = int(self.port)
+
+#         if isinstance(self.workers, str):
+#             self.workers = int(self.workers)
+
+#         if isinstance(self.threads, str):
+#             self.threads = int(self.threads)
+
+#         if isinstance(self.timeout, str):
+#             self.timeout = int(self.timeout)
+
+
 @dataclass
-class BountyForge(object):
-    host: str = "0.0.0.0"
-    port: int = 8080
+class BaseApp(object):
+    host: str = "127.0.0.1"
+    port: int = 5000  # check for port conflict
     workers: int = 1
-    threads: int = 2
-    timeout: int = 120
-    project_version: str = "0.0.2"
+    session_secret_key: str = "default_secret_key"
+    session_lifetime: int = 3  # in hours
+    auth_user: str = "admin"
+    auth_pass: str = "admin"  # H8Ny+t2F(7MB
+    is_debug: bool = True
 
     def __post_init__(self):
+        if isinstance(self.port, str):
+            self.port = int(self.port)
+
+        if isinstance(self.workers, str):
+            self.workers = int(self.workers)
+
+
+@dataclass
+class BackendBountyForge(BaseApp):
+    celery_broker_url: str = "redis://redis:6379/0"
+    mongo_uri: str = "mongodb://mongo:27017"
+    api_token: str = "change-me"
+    threads: int = 1
+    timeout: int = 120
+    project_version: str = "0.0.8"
+
+    def __post_init__(self):
+        super().__post_init__()
+
         if isinstance(self.port, str):
             self.port = int(self.port)
 
@@ -35,7 +79,17 @@ class BountyForge(object):
 
 
 @dataclass
-class ScannerSettings:
+class FrontendBountyForge(BaseApp):
+    session_secret: str = "change-me"
+    backend_url: str = "http://localhost:5000/api"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.port = 8080
+
+
+@dataclass
+class ScannerSettings(object):
     """
     Configuration for scanner modules.
 
@@ -43,15 +97,22 @@ class ScannerSettings:
     """
     nmap: Dict[str, Any] = field(default_factory=lambda: {
         "scan_type": "default",  # Options: "default", "aggressive", "full"
-        "additional_flags": []  # List of additional Nmap flags
+        "additional_flags": []
     })
     subfinder: Dict[str, Any] = field(default_factory=lambda: {
-        "additional_flags": []  # Additional flags for subfinder
+        "additional_flags": []
     })
     subdomain_bruteforce: Dict[str, Any] = field(default_factory=lambda: {
-        "wordlist": "subdomains.txt",  # Path to wordlist for brute forcing
-        "additional_flags": []  # Additional flags for brute force tool
+        "wordlist": "subdomains.txt",
+        "additional_flags": []
     })
+    httpx: Dict[str, Any] = field(default_factory=lambda: {
+        "mode": "recon",   # Options: "recon", "live"
+        "additional_flags": []
+    })
+
+    def __post_init__(self):
+        pass
 
 
 @dataclass
@@ -77,7 +138,9 @@ class Config(object):
     Generalized Config class
     """
     logging: LoggingConfig = field(default_factory=LoggingConfig)
-    app: BountyForge = field(default_factory=BountyForge)
+    backend: BackendBountyForge = field(default_factory=BackendBountyForge)
+    frontend: FrontendBountyForge = field(default_factory=FrontendBountyForge)
+    # app: BountyForge = field(default_factory=BountyForge)
     scanners: ScannerSettings = field(default_factory=ScannerSettings)
 
     def __post_init__(self):
@@ -136,6 +199,18 @@ class Config(object):
                     else:
                         cfg_instance[var] = env_items[env_var]
         return cls(**config)
+
+    def save(self, cfg_path: str | os.PathLike | None = "config.yaml") -> None:
+        """
+        Save config to yaml file
+        """
+        with open(cfg_path, "w", encoding="utf-8") as path:
+            yaml.dump(
+                asdict(self),
+                path,
+                default_flow_style=False,
+                allow_unicode=True
+            )
 
 
 # Cached if imported

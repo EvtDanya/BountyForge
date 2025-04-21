@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Dict
 from bountyforge.core.module_base import Module
 
 logger = logging.getLogger(__name__)
@@ -27,21 +27,25 @@ class Engine:
             f"[i] Registered module: {module.__class__.__name__}"
         )
 
-    def run(self, target: str) -> None:
+    def run_all(self, target: str) -> Dict[str, Dict[str, any]]:
         """
         Runs each registered module for the given target.
 
         :param target: The target address or domain.
         """
         logger.info(f"Running modules for target: {target}")
+        results = {}
         for module in self.modules:
             try:
                 result = module.run(target)
+                results[module.__class__.__name__] = result
                 logger.info(
                     f"[i] Module {module.__class__.__name__} result: {result}"
                 )
-                #! Здесь можно добавить передачу результатов в систему анализа или веб-панель
             except Exception as e:
                 logger.error(
                     f"[ERR] Error in module {module.__class__.__name__}: {e}"
                 )
+                results[module.__class__.__name__] = {"error": str(e)}
+
+        return results

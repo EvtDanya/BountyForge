@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BountyForge</title>
+  <!-- Inline style to disable transition initially -->
+  <script>
+    (function() {
+      var storedState = localStorage.getItem("sidebarState") || "expanded";
+      var style = document.createElement('style');
+      style.innerHTML = "#sidebar-wrapper { transition: none !important; }";
+      document.head.appendChild(style);
+      document.addEventListener("DOMContentLoaded", function() {
+        var sidebar = document.getElementById("sidebar-wrapper");
+        if (storedState === "collapsed") {
+          sidebar.classList.remove("sidebar-expanded");
+          sidebar.classList.add("sidebar-collapsed");
+        } else {
+          sidebar.classList.remove("sidebar-collapsed");
+          sidebar.classList.add("sidebar-expanded");
+        }
+        setTimeout(function(){
+          if (style && style.parentNode) {
+            style.parentNode.removeChild(style);
+          }
+        }, 50);
+      });
+    })();
+  </script>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Icon -->
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+</head>
+<body>
+  <div class="d-flex" id="wrapper">
+    <!-- Sidebar -->
+    <div id="sidebar-wrapper">
+      <div class="sidebar-heading bg-primary text-white py-3 px-3">
+        <i class="fas fa-bug sidebar-icon"></i>
+        <span class="sidebar-title sidebar-text">BountyForge</span>
+      </div>
+      <nav class="nav flex-column">
+        <a href="{{ url_for('dashboard') }}" class="nav-link sidebar-item">
+          <i class="fas fa-tachometer-alt sidebar-icon"></i>
+          <span class="sidebar-text">Dashboard</span>
+        </a>
+        <a href="{{ url_for('scan_settings') }}" class="nav-link sidebar-item">
+          <i class="fas fa-sliders-h sidebar-icon"></i>
+          <span class="sidebar-text">Settings</span>
+        </a>
+        <a href="{{ url_for('scan_history') }}" class="nav-link sidebar-item">
+          <i class="fas fa-history sidebar-icon"></i>
+          <span class="sidebar-text">Scan History</span>
+        </a>
+        <a href="{{ url_for('reports') }}" class="nav-link sidebar-item">
+          <i class="fas fa-file-alt sidebar-icon"></i>
+          <span class="sidebar-text">Reports</span>
+        </a>
+        <!-- Новый пункт меню -->
+        <!-- <a href="{{ url_for('launch_scan') }}" class="nav-link sidebar-item">
+          <i class="fas fa-play-circle sidebar-icon"></i>
+          <span class="sidebar-text">Launch Scan</span>
+        </a> -->
+      </nav>
+    </div>
+    <!-- /#sidebar-wrapper -->
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper" class="w-100">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <div class="container-fluid">
+          <button class="btn btn-outline-secondary" id="sidebar-toggle">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h3 class="ms-3 my-auto">BountyForge</h3>
+        </div>
+      </nav>
+      <div class="container-fluid mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+    <!-- /#page-content-wrapper -->
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Toggle sidebar with state preservation and without animation "jerk" on page transitions
+    document.addEventListener("DOMContentLoaded", function() {
+      const sidebarToggle = document.getElementById("sidebar-toggle");
+      sidebarToggle.addEventListener("click", function(e) {
+        e.preventDefault();
+        const sidebar = document.getElementById("sidebar-wrapper");
+        sidebar.style.transition = "none";
+        if (sidebar.classList.contains("sidebar-expanded")) {
+          sidebar.classList.remove("sidebar-expanded");
+          sidebar.classList.add("sidebar-collapsed");
+          localStorage.setItem("sidebarState", "collapsed");
+        } else {
+          sidebar.classList.remove("sidebar-collapsed");
+          sidebar.classList.add("sidebar-expanded");
+          localStorage.setItem("sidebarState", "expanded");
+        }
+        void sidebar.offsetWidth;
+        sidebar.style.transition = "";
+      });
+    });
+
+    // Initialize popovers
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function(popoverTriggerEl) {
+      return new bootstrap.Popover(popoverTriggerEl);
+    });
+  </script>
+</body>
+</html>

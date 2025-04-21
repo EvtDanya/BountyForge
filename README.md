@@ -11,13 +11,13 @@ py .\src\bountyforge\scripts\run.py
 
 
 ```
-bountyforge/
-├── app/                  # Основной код
+src/
+├── bountyforge/                  # Основной код
 │   ├── modules/          # Модули (разведка, сканирование и т.д.)
 │   ├── api/              # API сервер
 │   ├── core/             # Логика и настройки
 │   └── utils/            # Вспомогательные функции
-├── tests/                # Тесты
+├── frontend/               
 ├── docker/               # Docker файлы
 ├── frontend/             # Веб-панель
 └── README.md             # Документация

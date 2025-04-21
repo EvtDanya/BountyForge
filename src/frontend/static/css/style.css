@@ -1,0 +1,114 @@
+/* Общие стили для страницы */
+body {
+  background-color: #f4f7fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+
+/* Полноэкранный Wrapper */
+html, body, #wrapper {
+  height: 100%;
+}
+
+#wrapper {
+  min-height: 100vh;
+  display: flex;
+}
+
+/* Sidebar стили */
+#sidebar-wrapper {
+  transition: width 0.3s;
+  overflow-x: hidden;
+  background-color: #343a40;
+}
+
+#page-content-wrapper {
+  width: 100%;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* Развернутая панель */
+.sidebar-expanded {
+  width: 250px;
+}
+
+/* Свернутая панель */
+.sidebar-collapsed {
+  width: 80px;
+}
+
+/* Заголовок боковой панели */
+.sidebar-heading {
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+/* Элементы навигации */
+.sidebar-item {
+  padding: 15px 20px;
+  color: #ccc;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+  /* Задаем фиксированную высоту и ширину, чтобы избежать разницы из-за скрытого текста */
+  min-height: 50px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sidebar-item:hover {
+  background-color: #495057;
+  color: #fff;
+}
+
+/* Иконки */
+.sidebar-icon {
+  font-size: 1.5rem;
+  width: 30px;
+  text-align: center;
+}
+
+/* Текстовые подписи */
+.sidebar-text {
+  margin-left: 10px;
+  /* В свернутом состоянии вместо opacity используем display: none */
+  display: inline;
+  transition: none;
+}
+
+/* При свернутой панели скрываем текст полностью */
+#sidebar-wrapper.sidebar-collapsed .sidebar-text,
+#sidebar-wrapper.sidebar-collapsed .sidebar-title {
+  display: none;
+}
+
+/* При свернутой панели центрируем навигационные элементы */
+#sidebar-wrapper.sidebar-collapsed .sidebar-item {
+  justify-content: center;
+}
+
+.multiple-target {
+  font-family: monospace;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+.single-target {
+  max-width: 400px;
+}
+
+.form-control::placeholder {
+  opacity: 0.6;
+  font-style: italic;
+}

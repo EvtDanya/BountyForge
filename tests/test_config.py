@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from honeypot.config import Config
+from bountyforge.config import Config
 
 
 def test_config_load():

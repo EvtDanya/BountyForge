@@ -219,3 +219,13 @@ class Module():
                 f"target '{self.target}': {ex}"
             )
             return {"error": f"Unexpected error: {ex}"}
+
+    def check_availability(self) -> bool:
+        """
+        Check if the module is available for use
+
+        :return: True if the module is available, False otherwise
+        """
+        # Here we can check for dependencies or other conditions
+        # For now, we assume the module is always available
+        return True

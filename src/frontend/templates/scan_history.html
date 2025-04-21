@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Scan History</h1>
+  <table class="table table-bordered">
+    <thead>
+      <tr>
+        <th>Target</th>
+        <th>Tool</th>
+        <th>Result</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in history %}
+      <tr>
+        <td>{{ record.target }}</td>
+        <td>{{ record.tool }}</td>
+        <td>{{ record.result }}</td>
+        <td>{{ record.timestamp }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

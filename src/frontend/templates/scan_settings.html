@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-4">Settings</h1>
+<form id="settingsForm" method="POST">
+  <!-- Global Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+      <h5><i class="fas fa-globe me-2"></i>Global Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3 row">
+        <label for="rate_limit" class="col-sm-3 col-form-label">Rate Limit (req/sec):</label>
+        <div class="col-sm-9">
+          <input type="text" class="form-control" id="rate_limit" name="rate_limit" value="">
+        </div>
+      </div>
+      <div class="mb-3 row">
+        <label for="timeout" class="col-sm-3 col-form-label">Timeout (sec):</label>
+        <div class="col-sm-9">
+          <input type="text" class="form-control" id="timeout" name="timeout" value="">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nmap Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-success text-white">
+      <h5><i class="fas fa-network-wired me-2"></i>Nmap Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Scan Mode:</label>
+        <div class="btn-group" role="group" aria-label="Nmap Scan Mode">
+          <input type="radio" class="btn-check" name="nmap_mode" id="nmap_default" value="default" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nmap_default">Default</label>
+
+          <input type="radio" class="btn-check" name="nmap_mode" id="nmap_aggressive" value="aggressive" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nmap_aggressive">Aggressive</label>
+
+          <input type="radio" class="btn-check" name="nmap_mode" id="nmap_full" value="full" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nmap_full">Full</label>
+
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-toggle="popover"
+                  data-bs-content="Default: Standard scan. Aggressive: Enables OS and version detection, script scanning. Full: Scans all ports with extensive information.">
+            <i class="fas fa-question-circle"></i>
+          </button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="nmap_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="nmap_flags" name="nmap_flags" value="">
+      </div>
+    </div>
+  </div>
+
+  <!-- Subfinder Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-info text-white">
+      <h5><i class="fas fa-search me-2"></i>Subfinder Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="subfinder_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="subfinder_flags" name="subfinder_flags" value="">
+      </div>
+    </div>
+  </div>
+
+  <!-- Subdomain Bruteforce Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-danger text-white">
+      <h5><i class="fas fa-bolt me-2"></i>Subdomain Bruteforce</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="bruteforce_wordlist" class="form-label">Wordlist:</label>
+        <select class="form-select" id="bruteforce_wordlist" name="bruteforce_wordlist">
+          <option value="subdomains-small.txt">subdomains-small.txt</option>
+          <option value="subdomains-medium.txt">subdomains-medium.txt</option>
+          <option value="subdomains-large.txt">subdomains-large.txt</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="bruteforce_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="bruteforce_flags" name="bruteforce_flags" value="">
+      </div>
+    </div>
+  </div>
+
+  <!-- HTTPX Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-warning text-white">
+      <h5><i class="fas fa-wifi me-2"></i>HTTPX Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Mode:</label>
+        <div class="btn-group" role="group" aria-label="HTTPX Mode">
+          <input type="radio" class="btn-check" name="httpx_mode" id="httpx_recon" value="recon" autocomplete="off">
+          <label class="btn btn-outline-primary" for="httpx_recon">Recon</label>
+
+          <input type="radio" class="btn-check" name="httpx_mode" id="httpx_live" value="live" autocomplete="off">
+          <label class="btn btn-outline-primary" for="httpx_live">Live</label>
+
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-toggle="popover"
+                  data-bs-content="Recon mode provides detailed output (page title, status code, CDN). Live mode provides minimal output (status code only).">
+            <i class="fas fa-question-circle"></i>
+          </button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="httpx_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="httpx_flags" name="httpx_flags" value="">
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-lg btn-success">
+    <i class="fas fa-save me-2"></i>Save Settings
+  </button>
+</form>
+
+<script>
+    const BACKEND_GET_CONFIG = "{{ api_get_config_url }}";
+    const BACKEND_SAVE_CONFIG = "{{ api_save_config_url }}";
+    document.addEventListener("DOMContentLoaded", function () {
+      fetch(`${BACKEND_GET_CONFIG}`, {
+        method: "GET",
+        headers: {
+            "Authorization": "Bearer " + "{{ session.jwt_token }}"
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.app) {
+            document.getElementById("rate_limit").value = data.app.rate_limit || "";
+            document.getElementById("timeout").value = data.app.timeout || "";
+          }
+          if (data.scanners?.nmap) {
+            document.getElementById("nmap_" + data.scanners.nmap.scan_type)?.click();
+            document.getElementById("nmap_flags").value = data.scanners.nmap.additional_flags || "";
+          }
+          if (data.scanners?.subfinder) {
+            document.getElementById("subfinder_flags").value = data.scanners.subfinder.additional_flags || "";
+          }
+          if (data.scanners?.subdomain_bruteforce) {
+            document.getElementById("bruteforce_flags").value = data.scanners.subdomain_bruteforce.additional_flags || "";
+            document.getElementById("bruteforce_wordlist").value = data.scanners.subdomain_bruteforce.wordlist || "";
+          }
+          if (data.scanners?.httpx) {
+            document.getElementById("httpx_" + data.scanners.httpx.mode)?.click();
+            document.getElementById("httpx_flags").value = data.scanners.httpx.additional_flags || "";
+          }
+        });
+    
+      document.getElementById("settingsForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+    
+        const payload = {
+          app: {
+            rate_limit: document.getElementById("rate_limit").value,
+            timeout: document.getElementById("timeout").value
+          },
+          scanners: {
+            nmap: {
+              scan_type: document.querySelector("input[name='nmap_mode']:checked")?.value || "default",
+              additional_flags: document.getElementById("nmap_flags").value
+            },
+            subfinder: {
+              additional_flags: document.getElementById("subfinder_flags").value
+            },
+            subdomain_bruteforce: {
+              additional_flags: document.getElementById("bruteforce_flags").value,
+              wordlist: document.getElementById("bruteforce_wordlist").value
+            },
+            httpx: {
+              mode: document.querySelector("input[name='httpx_mode']:checked")?.value || "recon",
+              additional_flags: document.getElementById("httpx_flags").value
+            }
+          }
+        };
+    
+        fetch(`${BACKEND_SAVE_CONFIG}`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Authorization": "Bearer " + "{{ session.jwt_token }}",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        })
+          .then(response => {
+            if (!response.ok) throw new Error("Failed to save");
+            return response.json();
+          })
+          .then(data => {
+            alert("Settings saved!");
+          })
+          .catch(error => {
+            alert("Error saving settings: " + error.message);
+          });
+      });
+    });
+    </script>
+    
+{% endblock %}
