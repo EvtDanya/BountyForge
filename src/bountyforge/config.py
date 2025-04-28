@@ -57,10 +57,10 @@ class BaseApp(object):
 class BackendBountyForge(BaseApp):
     celery_broker_url: str = "redis://redis:6379/0"
     mongo_uri: str = "mongodb://mongo:27017"
-    api_token: str = "change-me"
     threads: int = 1
     timeout: int = 120
-    project_version: str = "0.0.8"
+    rate_limit: int = "20"
+    project_version: str = "0.0.9"
 
     def __post_init__(self):
         super().__post_init__()
@@ -77,15 +77,17 @@ class BackendBountyForge(BaseApp):
         if isinstance(self.timeout, str):
             self.timeout = int(self.timeout)
 
+        if isinstance(self.rate_limit, str):
+            self.rate_limit = int(self.rate_limit)
+
 
 @dataclass
 class FrontendBountyForge(BaseApp):
-    session_secret: str = "change-me"
-    backend_url: str = "http://localhost:5000/api"
+    session_secret: str = "default_secret_key"
+    port: int = 8080
 
     def __post_init__(self):
         super().__post_init__()
-        self.port = 8080
 
 
 @dataclass
@@ -103,11 +105,16 @@ class ScannerSettings(object):
         "additional_flags": []
     })
     subdomain_bruteforce: Dict[str, Any] = field(default_factory=lambda: {
-        "wordlist": "subdomains.txt",
+        "wordlist": "subdomains-small.txt",
         "additional_flags": []
     })
     httpx: Dict[str, Any] = field(default_factory=lambda: {
         "mode": "recon",   # Options: "recon", "live"
+        "additional_flags": []
+    })
+
+    nuclei: Dict[str, Any] = field(default_factory=lambda: {
+        "mode": "full",   # Options: "full", "fast"
         "additional_flags": []
     })
 

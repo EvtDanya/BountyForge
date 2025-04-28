@@ -3,11 +3,17 @@
   <div class="mb-4">
     <h2>Dashboard</h2>
     <p>Welcome to BountyForge. Monitor your scan status, view statistics, and manage your scans here.</p>
-    <!-- Button to open launch-scan modal -->
-    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#launchScanModal">
+    <!-- Buttons -->
+    <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#launchScanModal">
       <i class="fas fa-play me-2"></i>Launch Scan
     </button>
+    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#hostsModal">
+      <i class="fas fa-file-code me-2"></i>Edit Hosts
+    </button>
   </div>
+
+  <!-- Notification area -->
+  <div id="notificationArea"></div>
 
   <div class="row">
     <!-- System Status card -->
@@ -21,9 +27,7 @@
             </button>
           </div>
           <small class="text-light mb-3">Click to verify that all scan modules are up.</small>
-          <div id="moduleStatus" class="mt-auto">
-            <!-- Здесь появится список модулей -->
-          </div>
+          <div id="moduleStatus" class="mt-auto"></div>
         </div>
       </div>
     </div>
@@ -56,9 +60,12 @@
         <form id="scanForm">
           <div class="modal-header">
             <h5 class="modal-title" id="launchScanModalLabel">Launch Scan</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
+            <!-- Error alert for scan form -->
+            <div id="scanFormAlert"></div>
+
             <!-- Target Type -->
             <div class="mb-3">
               <label for="target_type" class="form-label">Target Type:</label>
@@ -72,13 +79,13 @@
             <!-- Single target input -->
             <div class="mb-3" id="single_target_group">
               <label for="target_single" class="form-label">Target:</label>
-              <input type="text" class="form-control" id="target_single" name="target" placeholder="example.com">
+              <input type="text" class="form-control" id="target_single" name="target_single" placeholder="example.com">
             </div>
 
             <!-- Multiple targets textarea -->
             <div class="mb-3 d-none" id="multiple_target_group">
               <label for="target_multiple" class="form-label">Targets (one per line):</label>
-              <textarea class="form-control" id="target_multiple" rows="5"
+              <textarea class="form-control" id="target_multiple" name="target_multiple" rows="5"
                         placeholder="example.com
 test.com
 sub.domain.com"></textarea>
@@ -89,6 +96,14 @@ sub.domain.com"></textarea>
               <label for="target_file" class="form-label">Upload targets file:</label>
               <input type="file" class="form-control" id="target_file" name="target_file" accept=".txt">
               <small class="form-text text-muted">One host/IP per line.</small>
+            </div>
+
+            <!-- Exclude Targets textarea -->
+            <div class="mb-3">
+              <label for="target_exclude" class="form-label">Exclude Targets (one per line):</label>
+              <textarea class="form-control" id="target_exclude" name="target_exclude" rows="3"
+                        placeholder="ignore.example.com
+dev.internal.local"></textarea>
             </div>
 
             <!-- Tool selection -->
@@ -102,7 +117,6 @@ sub.domain.com"></textarea>
                 <input class="form-check-input" type="checkbox" id="tool_subfinder" name="tools" value="subfinder">
                 <label class="form-check-label" for="tool_subfinder">Subfinder</label>
               </div>
-              <!-- add more tools as needed -->
             </div>
 
             <!-- Nmap settings -->
@@ -140,157 +154,243 @@ sub.domain.com"></textarea>
     </div>
   </div>
 
+  <!-- Hosts Modal -->
+  <div class="modal fade" id="hostsModal" tabindex="-1" aria-labelledby="hostsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <form id="hostsForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="hostsModalLabel">Edit /etc/hosts</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="hostsTextarea" class="form-label">Current /etc/hosts:</label>
+              <textarea id="hostsTextarea" class="form-control" rows="15" readonly>Loading…</textarea>
+            </div>
+            <div id="hostsAlert"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Hosts</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Scan result output -->
   <div id="scanResult" class="mt-4"></div>
+{% endblock %}
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const targetTypeEl      = document.getElementById('target_type');
-      const singleGroup       = document.getElementById('single_target_group');
-      const multipleGroup     = document.getElementById('multiple_target_group');
-      const fileGroup         = document.getElementById('file_target_group');
-      const scanForm          = document.getElementById('scanForm');
-      const scanResult        = document.getElementById('scanResult');
-      const toolNmap          = document.getElementById('tool_nmap');
-      const toolSubfinder     = document.getElementById('tool_subfinder');
-      const nmapSettings      = document.getElementById('nmap_settings');
-      const subfinderSettings = document.getElementById('subfinder_settings');
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const CHECK_URL = "{{ api_check_modules_url }}";
+  const HOSTS_URL = "{{ api_hosts_url }}";
+  const SCAN_URL  = "{{ api_start_scan_url }}";
+  const token     = "{{ session.jwt_token }}";
 
-      const BACKEND_CHECK_MODULES = "{{ api_check_modules_url }}";
-      const btn = document.getElementById('checkModulesBtn');
-      const statusContainer = document.getElementById('moduleStatus');
+  // Показываем alert вверху страницы
+  function showAlert(type, message) {
+    document.getElementById('notificationArea').innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>`;
+  }
 
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-        statusContainer.innerHTML = '';
-        try {
-          const resp = await fetch(BACKEND_CHECK_MODULES, {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer ' + '{{ session.jwt_token }}'
-            }
-          });
-          const data = await resp.json();
-          // Ожидаем что data — объект { nmap: true, subfinder: false, httpx: true, ... }
-          const ul = document.createElement('ul');
-          ul.className = 'list-unstyled mb-0';
-          for (const [mod, ok] of Object.entries(data)) {
-            const li = document.createElement('li');
-            const icon = ok
-              ? '<i class="fas fa-check-circle text-success"></i>'
-              : '<i class="fas fa-times-circle text-danger"></i>';
-            li.innerHTML = `${icon} <strong>${mod}</strong>`;
-            ul.appendChild(li);
-          }
-          statusContainer.appendChild(ul);
-        } catch (e) {
-          statusContainer.innerHTML = `<div class="text-danger">Error checking modules</div>`;
-          console.error(e);
-        } finally {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-sync-alt"></i> Check Modules';
-        }
+  // --- Check Modules ---
+  const btnCheck   = document.getElementById('checkModulesBtn');
+  const statusCont = document.getElementById('moduleStatus');
+  btnCheck.addEventListener('click', async () => {
+    btnCheck.disabled = true;
+    btnCheck.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    statusCont.innerHTML = '';
+    try {
+      const res = await fetch(CHECK_URL, {
+        headers: { 'Authorization': 'Bearer ' + token }
       });
-
-      // Toggle input groups
-      targetTypeEl.addEventListener('change', () => {
-        singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
-        multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
-        fileGroup.classList.toggle('d-none', targetTypeEl.value !== 'file');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const ul = document.createElement('ul');
+      ul.className = 'list-unstyled mb-0';
+      Object.entries(data).forEach(([mod, ok]) => {
+        const li = document.createElement('li');
+        li.innerHTML = ok
+          ? '<i class="fas fa-check-circle text-success"></i> ' + mod
+          : '<i class="fas fa-times-circle text-danger"></i> ' + mod;
+        ul.appendChild(li);
       });
+      statusCont.appendChild(ul);
+    } catch (err) {
+      console.error('Module check error:', err);
+      showAlert('danger', `Error checking modules: ${err.message}`);
+    } finally {
+      btnCheck.disabled = false;
+      btnCheck.innerHTML = '<i class="fas fa-sync-alt"></i> Check Modules';
+    }
+  });
 
-      // Toggle tool‑specific settings
-      toolNmap.addEventListener('change', () => {
-        nmapSettings.classList.toggle('d-none', !toolNmap.checked);
-      });
-      toolSubfinder.addEventListener('change', () => {
-        subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
-      });
+  // --- Scan Form ---
+  const targetTypeEl      = document.getElementById('target_type');
+  const singleGroup       = document.getElementById('single_target_group');
+  const multipleGroup     = document.getElementById('multiple_target_group');
+  const fileGroup         = document.getElementById('file_target_group');
+  const excludeEl         = document.getElementById('target_exclude');
+  const scanForm          = document.getElementById('scanForm');
+  const scanResult        = document.getElementById('scanResult');
+  const toolNmap          = document.getElementById('tool_nmap');
+  const toolSubfinder     = document.getElementById('tool_subfinder');
+  const nmapSettings      = document.getElementById('nmap_settings');
+  const subfinderSettings = document.getElementById('subfinder_settings');
+  const scanFormAlert     = document.getElementById('scanFormAlert');
 
-      // Handle form submission
-      scanForm.addEventListener('submit', async e => {
-        e.preventDefault();
+  // переключение блоков ввода
+  targetTypeEl.addEventListener('change', () => {
+    singleGroup.classList.toggle('d-none', targetTypeEl.value!=='single');
+    multipleGroup.classList.toggle('d-none', targetTypeEl.value!=='multiple');
+    fileGroup.classList.toggle('d-none', targetTypeEl.value!=='file');
+  });
+  toolNmap.addEventListener('change', () => {
+    nmapSettings.classList.toggle('d-none', !toolNmap.checked);
+  });
+  toolSubfinder.addEventListener('change', () => {
+    subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
+  });
 
-        let targets, targetType = targetTypeEl.value;
+  scanForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    scanFormAlert.innerHTML = '';
+    let targets, tt = targetTypeEl.value;
 
-        if (targetType === 'file') {
-          const fileInput = document.getElementById('target_file');
-          if (!fileInput.files.length) {
-            return alert('Please select a file');
-          }
-          const fd = new FormData();
-          fd.append('target_file', fileInput.files[0]);
-          const uploadResp = await fetch('/upload_targets', {
-            method: 'POST',
-            credentials: 'include',
-            body: fd
-          });
-          if (!uploadResp.ok) {
-            const err = await uploadResp.json();
-            return alert('File upload failed: ' + err.error);
-          }
-          const { targets: list } = await uploadResp.json();
-          targets = list;
-          targetType = 'multiple';
-        } else if (targetType === 'multiple') {
-          const raw = document.getElementById('target_multiple').value.trim();
-          if (!raw) {
-            return alert('Please enter targets');
-          }
-          targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        } else {
-          const raw = document.getElementById('target_single').value.trim();
-          if (!raw) {
-            return alert('Please enter a target');
-          }
-          targets = raw;
+    try {
+      if (tt==='file') {
+        const f = document.getElementById('target_file');
+        if (!f.files.length) throw new Error('Please select a file');
+        const fd = new FormData(); fd.append('target_file', f.files[0]);
+        const up = await fetch('/upload_targets', {
+          method:'POST', credentials:'include', body:fd
+        });
+        if (!up.ok) {
+          const err = await up.json();
+          throw new Error(err.error||'Upload failed');
         }
+        targets = (await up.json()).targets;
+        tt = 'multiple';
+      } else if (tt==='multiple') {
+        const raw = document.getElementById('target_multiple').value.trim();
+        if (!raw) throw new Error('Please enter targets');
+        targets = raw.split(/\r?\n/).filter(Boolean);
+      } else {
+        const raw = document.getElementById('target_single').value.trim();
+        if (!raw) throw new Error('Please enter a target');
+        targets = raw;
+      }
 
-        // collect tools
-        const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
-                           .map(chk => chk.value);
+      const exRaw = excludeEl.value.trim();
+      const exclude = exRaw ? exRaw.split(/\r?\n/).filter(Boolean) : [];
 
-        // build params (unchanged)
-
-        const params = {};
-        if (tools.includes('nmap')) {
-          params.nmap = {
-            scan_type: scanForm.querySelector('select[name="nmap_mode"]').value,
-            additional_flags: scanForm.querySelector('input[name="nmap_flags"]').value
-          };
-        }
-        if (tools.includes('subfinder')) {
-          params.subfinder = {
-            additional_flags: scanForm.querySelector('input[name="subfinder_flags"]').value
-          };
-        }
-
-        const payload = {
-          target: targets,
-          target_type: targetType,
-          tools,
-          params
+      const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
+                         .map(ch => ch.value);
+      const params = {};
+      if (tools.includes('nmap')) {
+        params.nmap = {
+          scan_type: document.querySelector('select[name="nmap_mode"]').value,
+          additional_flags: document.querySelector('input[name="nmap_flags"]').value
         };
+      }
+      if (tools.includes('subfinder')) {
+        params.subfinder = {
+          additional_flags: document.querySelector('input[name="subfinder_flags"]').value
+        };
+      }
 
-        const BACKEND_START_SCAN = '{{ api_start_scan_url }}';
-        try {
-          const resp = await fetch(BACKEND_START_SCAN, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer {{ session.jwt_token }}'
-            },
-            body: JSON.stringify(payload)
-          });
-          const result = await resp.json();
-          scanResult.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
-          bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
-        } catch (err) {
-          console.error(err);
-          scanResult.innerHTML = `<div class="alert alert-danger">Error: ${err.message}</div>`;
-        }
+      const payload = { target: targets, exclude, target_type: tt, tools, params };
+      const res = await fetch(SCAN_URL, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+token
+        },
+        body: JSON.stringify(payload)
       });
-    });
-  </script>
+
+      const text = await res.text();
+      if (!res.ok) {
+        let msg = text;
+        try { msg = JSON.parse(text).error } catch {}
+        throw new Error(msg||res.statusText);
+      }
+
+      const json = JSON.parse(text);
+      scanResult.innerHTML = `<pre>${JSON.stringify(json,null,2)}</pre>`;
+      bootstrap.Modal.getInstance(
+        document.getElementById('launchScanModal')
+      ).hide();
+      showAlert('success','Scan started successfully');
+    } catch (err) {
+      console.error('Scan error:', err);
+      scanFormAlert.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+    }
+  });
+
+  // --- Hosts Modal ---
+  const hostsModal    = document.getElementById('hostsModal');
+  const hostsForm     = document.getElementById('hostsForm');
+  const hostsTextarea = document.getElementById('hostsTextarea');
+  const hostsAlert    = document.getElementById('hostsAlert');
+
+  hostsModal.addEventListener('show.bs.modal', async () => {
+    hostsAlert.innerHTML = '';
+    hostsTextarea.value = 'Loading…';
+    try {
+      const res = await fetch(HOSTS_URL, {
+        headers:{ 'Authorization':'Bearer '+token }
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const j = JSON.parse(text);
+        throw new Error(j.error||res.statusText);
+      }
+      hostsTextarea.value = JSON.parse(text).hosts||'';
+    } catch (err) {
+      console.error('Hosts load error:', err);
+      hostsTextarea.value = '';
+      hostsAlert.innerHTML = `<div class="alert alert-danger">Error loading hosts: ${err.message}</div>`;
+    }
+  });
+
+  hostsForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    hostsAlert.innerHTML = '';
+    try {
+      const res = await fetch(HOSTS_URL, {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+token
+        },
+        body: JSON.stringify({ hosts: hostsTextarea.value })
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const j = JSON.parse(text);
+        throw new Error(j.error||res.statusText);
+      }
+      console.log('Hosts saved:', text);
+      hostsAlert.innerHTML = '<div class="alert alert-success">Hosts updated successfully</div>';
+    } catch (err) {
+      console.error('Hosts save error:', err);
+      hostsAlert.innerHTML = `<div class="alert alert-danger">Error saving hosts: ${err.message}</div>`;
+    }
+  });
+
+  // initialize popovers
+  var pop = [].slice.call(
+    document.querySelectorAll('[data-bs-toggle="popover"]')
+  );
+  pop.map(el=>new bootstrap.Popover(el));
+});
+</script>
 {% endblock %}

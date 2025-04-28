@@ -8,8 +8,6 @@ logger = logging.getLogger("bountyforge")
 
 
 def run() -> None:
-    logger.info("Starting web app...")
-
     # options = {
     #     "bind": f"{settings.app.host}:{settings.app.port}",
     #     "workers": settings.app.workers,
@@ -21,6 +19,10 @@ def run() -> None:
     # }
 
     app = create_app()
+    if app is None:
+        logger.error("Failed to create app")
+        return None
+
     app.run(
         host=settings.backend.host,
         port=settings.backend.port,

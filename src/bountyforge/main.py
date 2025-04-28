@@ -1,7 +1,6 @@
 import logging
 import flask
 from flask_cors import CORS
-from datetime import timedelta
 # import gunicorn.app.base
 
 from . import utils
@@ -38,15 +37,50 @@ utils.init_logging(logger)
 #         return self.application
 
 
-def create_app() -> flask.Flask:
+def is_correct_config() -> bool:
+    if not (
+        settings.backend.auth_user == settings.frontend.auth_user
+        and settings.backend.auth_pass == settings.frontend.auth_pass
+    ):
+        logger.warning(
+            "Backend and Frontend are using not the same user. "
+            "This may cause issues with the web app."
+        )
+        return False
+
+    if not (
+        settings.backend.session_secret_key ==
+            settings.frontend.session_secret_key
+    ):
+        logger.warning(
+            "Backend and Frontend are using not the same secret key. "
+            "This may cause issues with the web app."
+        )
+        return False
+
+    if not (
+        settings.backend.session_lifetime ==
+            settings.frontend.session_lifetime
+    ):
+        logger.warning(
+            "Backend and Frontend are using not the same session lifetime. "
+            "This may cause issues with the web app."
+        )
+        return False
+
+    return True
+
+
+def create_app() -> flask.Flask | None:
+    if not is_correct_config():
+        return None
+
     logger.info(
         f"Starting backend server on: "
         f"{settings.backend.host}:{settings.backend.port}"
     )
     app = flask.Flask(__name__)
     app.config['JWT_SECRET_KEY'] = settings.backend.session_secret_key
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] =\
-        timedelta(hours=settings.backend.session_lifetime)
 
     jwt.init_app(app)
 
@@ -80,6 +114,10 @@ def create_app() -> flask.Flask:
 
 if __name__ == "__main__":
     app = create_app()
+    if app is None:
+        logger.error("Failed to create app")
+        exit(1)
+
     app.run(
         host=settings.backend.host,
         port=settings.backend.port,

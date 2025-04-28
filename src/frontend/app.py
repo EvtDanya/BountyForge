@@ -105,24 +105,21 @@ def login_required(f):
 @app.route("/")
 @login_required
 def dashboard():
-    api_start_scan_url = f"{BACKEND_URL}/api/start_scan"
-    api_check_modules_url = f"{BACKEND_URL}/api/check_modules"
     return render_template(
         "dashboard.html",
-        api_check_modules_url=api_check_modules_url,
-        api_start_scan_url=api_start_scan_url
+        api_check_modules_url=f"{BACKEND_URL}/api/check_modules",
+        api_start_scan_url=f"{BACKEND_URL}/api/start_scan",
+        api_hosts_url=f"{BACKEND_URL}/api/hosts"
     )
 
 
 @app.route("/scan_settings", methods=["GET", "POST"])
 @login_required
 def scan_settings():
-    api_get_config_url = f"{BACKEND_URL}/api/get_config"
-    api_save_config_url = f"{BACKEND_URL}/api/save_config"
     return render_template(
         "scan_settings.html",
-        api_get_config_url=api_get_config_url,
-        api_save_config_url=api_save_config_url
+        api_get_config_url=f"{BACKEND_URL}/api/get_config",
+        api_save_config_url=f"{BACKEND_URL}/api/save_config"
     )
 
 

@@ -8,6 +8,7 @@ import subprocess
 import logging
 import enum
 import os
+import abc
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ class Module():
                 "Unknown target type"
             )
 
-    def pre_run(self, target_str: str) -> None:
+    def _pre_run(self, target_str: str) -> None:
         """
         Common pre-run actions such as logging and target validation
 
@@ -220,12 +221,14 @@ class Module():
             )
             return {"error": f"Unexpected error: {ex}"}
 
+    @abc.abstractmethod
     def check_availability(self) -> bool:
         """
         Check if the module is available for use
 
         :return: True if the module is available, False otherwise
         """
-        # Here we can check for dependencies or other conditions
-        # For now, we assume the module is always available
-        return True
+
+        raise NotImplementedError(
+            "Subclasses must implement the check_availability method"
+        )

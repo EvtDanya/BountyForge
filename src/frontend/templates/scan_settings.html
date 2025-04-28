@@ -11,13 +11,29 @@
       <div class="mb-3 row">
         <label for="rate_limit" class="col-sm-3 col-form-label">Rate Limit (req/sec):</label>
         <div class="col-sm-9">
-          <input type="text" class="form-control" id="rate_limit" name="rate_limit" value="">
+          <input
+            type="number"
+            class="form-control"
+            id="rate_limit"
+            name="rate_limit"
+            min="1"
+            required
+            value=""
+          >
         </div>
       </div>
       <div class="mb-3 row">
         <label for="timeout" class="col-sm-3 col-form-label">Timeout (sec):</label>
         <div class="col-sm-9">
-          <input type="text" class="form-control" id="timeout" name="timeout" value="">
+          <input
+            type="number"
+            class="form-control"
+            id="timeout"
+            name="timeout"
+            min="1"
+            required
+            value=""
+          >
         </div>
       </div>
     </div>
@@ -43,7 +59,9 @@
 
           <button type="button" class="btn btn-outline-secondary"
                   data-bs-toggle="popover"
-                  data-bs-content="Default: Standard scan. Aggressive: Enables OS and version detection, script scanning. Full: Scans all ports with extensive information.">
+                  data-bs-trigger="hover focus"
+                  data-bs-placement="right"
+                  data-bs-content="Default: Standard. Aggressive: OS & version detection. Full: all ports.">
             <i class="fas fa-question-circle"></i>
           </button>
         </div>
@@ -106,7 +124,9 @@
 
           <button type="button" class="btn btn-outline-secondary"
                   data-bs-toggle="popover"
-                  data-bs-content="Recon mode provides detailed output (page title, status code, CDN). Live mode provides minimal output (status code only).">
+                  data-bs-trigger="hover focus"
+                  data-bs-placement="right"
+                  data-bs-content="Recon: detailed. Live: status only.">
             <i class="fas fa-question-circle"></i>
           </button>
         </div>
@@ -118,92 +138,193 @@
     </div>
   </div>
 
+  <!-- Nuclei Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-dark text-white">
+      <h5><i class="fas fa-bullseye me-2"></i>Nuclei Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Scan Mode:</label>
+        <div class="btn-group" role="group" aria-label="Nuclei Scan Mode">
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_default" value="default" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_default">Default</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_aggressive" value="aggressive" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_aggressive">Aggressive</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_full" value="full" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_full">Full</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_recon" value="recon" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_recon">Recon</label>
+
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-toggle="popover"
+                  data-bs-trigger="hover focus"
+                  data-bs-placement="right"
+                  data-bs-content="Default: template subset. Aggressive: high rate. Full: all templates. Recon: JSON output.">
+            <i class="fas fa-question-circle"></i>
+          </button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="nuclei_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="nuclei_flags" name="nuclei_flags" value="">
+      </div>
+      <div class="mb-3">
+        <label for="nuclei_templates" class="form-label">Templates Dir:</label>
+        <input type="text" class="form-control" id="nuclei_templates" name="nuclei_templates" value="">
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary" id="updateNucleiBtn">
+          <i class="fas fa-sync"></i> Update Nuclei
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="updateTemplatesBtn">
+          <i class="fas fa-folder-open"></i> Update Templates
+        </button>
+      </div>
+    </div>
+  </div>
+
   <button type="submit" class="btn btn-lg btn-success">
     <i class="fas fa-save me-2"></i>Save Settings
   </button>
 </form>
 
 <script>
-    const BACKEND_GET_CONFIG = "{{ api_get_config_url }}";
-    const BACKEND_SAVE_CONFIG = "{{ api_save_config_url }}";
-    document.addEventListener("DOMContentLoaded", function () {
-      fetch(`${BACKEND_GET_CONFIG}`, {
-        method: "GET",
-        headers: {
-            "Authorization": "Bearer " + "{{ session.jwt_token }}"
-        }
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.app) {
-            document.getElementById("rate_limit").value = data.app.rate_limit || "";
-            document.getElementById("timeout").value = data.app.timeout || "";
-          }
-          if (data.scanners?.nmap) {
-            document.getElementById("nmap_" + data.scanners.nmap.scan_type)?.click();
-            document.getElementById("nmap_flags").value = data.scanners.nmap.additional_flags || "";
-          }
-          if (data.scanners?.subfinder) {
-            document.getElementById("subfinder_flags").value = data.scanners.subfinder.additional_flags || "";
-          }
-          if (data.scanners?.subdomain_bruteforce) {
-            document.getElementById("bruteforce_flags").value = data.scanners.subdomain_bruteforce.additional_flags || "";
-            document.getElementById("bruteforce_wordlist").value = data.scanners.subdomain_bruteforce.wordlist || "";
-          }
-          if (data.scanners?.httpx) {
-            document.getElementById("httpx_" + data.scanners.httpx.mode)?.click();
-            document.getElementById("httpx_flags").value = data.scanners.httpx.additional_flags || "";
-          }
-        });
-    
-      document.getElementById("settingsForm").addEventListener("submit", function (e) {
-        e.preventDefault();
-    
-        const payload = {
-          app: {
-            rate_limit: document.getElementById("rate_limit").value,
-            timeout: document.getElementById("timeout").value
-          },
-          scanners: {
-            nmap: {
-              scan_type: document.querySelector("input[name='nmap_mode']:checked")?.value || "default",
-              additional_flags: document.getElementById("nmap_flags").value
-            },
-            subfinder: {
-              additional_flags: document.getElementById("subfinder_flags").value
-            },
-            subdomain_bruteforce: {
-              additional_flags: document.getElementById("bruteforce_flags").value,
-              wordlist: document.getElementById("bruteforce_wordlist").value
-            },
-            httpx: {
-              mode: document.querySelector("input[name='httpx_mode']:checked")?.value || "recon",
-              additional_flags: document.getElementById("httpx_flags").value
-            }
-          }
-        };
-    
-        fetch(`${BACKEND_SAVE_CONFIG}`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Authorization": "Bearer " + "{{ session.jwt_token }}",
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        })
-          .then(response => {
-            if (!response.ok) throw new Error("Failed to save");
-            return response.json();
-          })
-          .then(data => {
-            alert("Settings saved!");
-          })
-          .catch(error => {
-            alert("Error saving settings: " + error.message);
-          });
-      });
+  const BACKEND_GET_CONFIG = "{{ api_get_config_url }}";
+  const BACKEND_SAVE_CONFIG = "{{ api_save_config_url }}";
+  const BACKEND_UPDATE_NUCLEI = "{{ api_update_nuclei_url }}";
+  const BACKEND_UPDATE_TEMPLATES = "{{ api_update_templates_url }}";
+  const token = "{{ session.jwt_token }}";
+
+  document.addEventListener("DOMContentLoaded", () => {
+    // 1) Load existing config
+    fetch(BACKEND_GET_CONFIG, {
+      method: "GET",
+      headers: { "Authorization": "Bearer " + token }
+    })
+    .then(r => r.json())
+    .then(data => {
+      // global
+      document.getElementById("rate_limit").value = data.backend.rate_limit || "";
+      document.getElementById("timeout").value    = data.backend.timeout    || "";
+      // nmap
+      document.getElementById("nmap_" + data.scanners.nmap.scan_type)?.click();
+      document.getElementById("nmap_flags").value = data.scanners.nmap.additional_flags || "";
+      // subfinder
+      document.getElementById("subfinder_flags").value = data.scanners.subfinder.additional_flags || "";
+      // bruteforce
+      document.getElementById("bruteforce_wordlist").value =
+        data.scanners.subdomain_bruteforce.wordlist ||
+        document.querySelector("#bruteforce_wordlist option").value;
+      document.getElementById("bruteforce_flags").value =
+        data.scanners.subdomain_bruteforce.additional_flags || "";
+      // httpx
+      document.getElementById("httpx_" + data.scanners.httpx.mode)?.click();
+      document.getElementById("httpx_flags").value = data.scanners.httpx.additional_flags || "";
+      // nuclei
+      document.getElementById("nuclei_" + (data.scanners.nuclei.mode || "default"))?.click();
+      document.getElementById("nuclei_flags").value     =
+        (Array.isArray(data.scanners.nuclei.additional_flags)
+          ? data.scanners.nuclei.additional_flags.join(" ")
+          : data.scanners.nuclei.additional_flags) || "";
+      document.getElementById("nuclei_templates").value = data.scanners.nuclei.templates_dir || "";
     });
-    </script>
-    
+
+    // 2) Save settings
+    document.getElementById("settingsForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const payload = {
+        backend: {
+          rate_limit: Number(document.getElementById("rate_limit").value),
+          timeout:     Number(document.getElementById("timeout").value)
+        },
+        scanners: {
+          nmap: {
+            scan_type:        document.querySelector("input[name='nmap_mode']:checked").value,
+            additional_flags: document.getElementById("nmap_flags").value.split(/\s+/).filter(Boolean)
+          },
+          subfinder: {
+            additional_flags: document.getElementById("subfinder_flags").value.split(/\s+/).filter(Boolean)
+          },
+          subdomain_bruteforce: {
+            wordlist:         document.getElementById("bruteforce_wordlist").value,
+            additional_flags: document.getElementById("bruteforce_flags").value.split(/\s+/).filter(Boolean)
+          },
+          httpx: {
+            mode:              document.querySelector("input[name='httpx_mode']:checked").value,
+            additional_flags:  document.getElementById("httpx_flags").value.split(/\s+/).filter(Boolean)
+          },
+          nuclei: {
+            mode:              document.querySelector("input[name='nuclei_mode']:checked").value,
+            additional_flags:  document.getElementById("nuclei_flags").value.split(/\s+/).filter(Boolean),
+            templates_dir:     document.getElementById("nuclei_templates").value
+          }
+        }
+      };
+      fetch(BACKEND_SAVE_CONFIG, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type":  "application/json"
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(r => { if (!r.ok) throw new Error("Failed to save"); return r.json(); })
+      .then(() => alert("Settings saved!"))
+      .catch(err => alert("Error saving settings: " + err.message));
+    });
+
+    // 3) Update Nuclei
+    document.getElementById("updateNucleiBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("updateNucleiBtn");
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
+      try {
+        let res = await fetch(BACKEND_UPDATE_NUCLEI, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        let j = await res.json();
+        alert(j.message || "Nuclei updated");
+      } catch (e) {
+        console.error(e);
+        alert("Error updating Nuclei");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sync"></i> Update Nuclei';
+      }
+    });
+
+    // 4) Update Templates
+    document.getElementById("updateTemplatesBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("updateTemplatesBtn");
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
+      try {
+        let res = await fetch(BACKEND_UPDATE_TEMPLATES, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        let j = await res.json();
+        alert(j.message || "Templates updated");
+      } catch (e) {
+        console.error(e);
+        alert("Error updating templates");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-folder-open"></i> Update Templates';
+      }
+    });
+
+    // 5) Initialize all popovers
+    var popoverTriggerList = [].slice.call(
+      document.querySelectorAll('[data-bs-toggle="popover"]')
+    );
+    popoverTriggerList.map(el => new bootstrap.Popover(el));
+  });
+</script>
 {% endblock %}

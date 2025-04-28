@@ -1,4 +1,6 @@
 import logging
+import shutil
+import datetime
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from bountyforge.config import settings, Config
@@ -32,8 +34,13 @@ def api_login():
 
     if not verify_password(username, password):
         return jsonify({"error": "Invalid credentials"}), 401
-
-    access_token = create_access_token(identity=username)
+    access_token = create_access_token(
+        identity=username,
+        expires_delta=datetime.timedelta(
+            hours=settings.backend.session_lifetime
+        )
+    )
+    print(f"Access token: {access_token}")
     return jsonify(access_token=access_token), 200
 
 
@@ -97,5 +104,36 @@ def check_modules():
     #     # ... остальные модули ...
     # }
     return jsonify(
-        {"test": False, "test2": True, "test3": False, "test4": True, "test5": False}  # noqa
-        ), 200
+        {"test": False, "test2": True, "test3": False}
+    ), 200
+
+
+@config_api.route('/api/hosts', methods=['GET'])
+@jwt_required()
+def get_hosts():
+    try:
+        with open('/etc/hosts', 'r') as f:
+            content = f.read()
+        return jsonify({"hosts": content}), 200
+    except Exception as ex:
+        logger.exception("Error reading /etc/hosts")
+        return jsonify({"error": str(ex)}), 500
+
+
+@config_api.route('/api/hosts', methods=['POST'])
+@jwt_required()
+def save_hosts():
+    data = request.get_json()
+    new_content = data.get('hosts')
+    if new_content is None:
+        return jsonify({"error": "No hosts content provided"}), 400
+    try:
+        # create backup of the original /etc/hosts file
+        shutil.copy('/etc/hosts', '/etc/hosts.bak')
+
+        with open('/etc/hosts', 'w') as f:
+            f.write(new_content)
+        return jsonify({"message": "Hosts updated successfully"}), 200
+    except Exception as ex:
+        logger.exception("Error writing /etc/hosts")
+        return jsonify({"error": str(ex)}), 500
