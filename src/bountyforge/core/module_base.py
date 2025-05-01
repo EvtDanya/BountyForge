@@ -3,12 +3,13 @@ Base module for all modules using the Template Method pattern
 with integrated command execution
 """
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 import subprocess
 import logging
 import enum
 import os
 import abc
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,8 @@ class Module():
     target: Union[str, List[str]] = None
     target_type: TargetType = TargetType.SINGLE
     additional_flags: List[str] = None
+    timeout: int = 7200  # 2 hours
+    required_binary: str = ""
 
     def __init__(
         self,
@@ -131,6 +134,21 @@ class Module():
             f"for target(s): {target_str}"
         )
 
+    def _resolve_binary(self, name: str) -> str:
+        """
+        Проверка доступности бинарника в системе
+        """
+        path = shutil.which(name)
+        if not path:
+            raise RuntimeError(f"Required binary {name} not found in PATH")
+        return path
+
+    def _build_base_command(self) -> List[str]:
+        """
+        Базовые проверки перед построением команды
+        """
+        return [self._resolve_binary(self.required_binary)]
+
     def _build_command(self, target_str: str) -> List[str]:
         """
         Build the command to be executed for the given prepared target
@@ -156,6 +174,12 @@ class Module():
         :return: A dictionary containing 'output' with the command result
         if successful, or 'error' with error message if an exception occurs
         """
+        result = {
+            "success": False,
+            "output": "",
+            "error": "",
+            "returncode": -1
+        }
         try:
             logger.debug(
                 f"[{self.__class__.__name__}] Running command: "
@@ -163,28 +187,50 @@ class Module():
             )
             process = subprocess.run(
                 command,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                check=True
+                check=True,
+                timeout=self.timeout
             )
-
+            result.update({
+                "success": True,
+                "output": process.stdout.strip(),
+                "error": process.stderr.strip(),
+                "returncode": process.returncode
+            })
             logger.info(
                 "[i] Command executed successfully"
             )
-            return {"output": process.stdout.strip()}
-        except subprocess.CalledProcessError as ex:
+            # return process.stdout.strip()
+
+        except subprocess.CalledProcessError as e:
             logger.error(
-                f"[!] Command '{' '.join(command)}' failed with error: {ex}"
+                f"[!] Command '{' '.join(command)}' failed with error: {e}"
             )
-            return {"error": str(ex)}
-        except Exception as ex:
+            result.update({
+                "output": e.stdout.strip(),
+                "error": e.stderr.strip(),
+                "returncode": e.returncode
+            })
+
+        except subprocess.TimeoutExpired:
+            error_msg = (
+                f"[!] Timeout ({self.timeout}s) "
+                f"expired for command: {' '.join(command)}"
+            )
+            result["error"] = error_msg
+            logger.error(error_msg)
+
+        except Exception as e:
             logger.exception(
                 f"[ERR] Unexpected exception while executing command: "
-                f"{' '.join(command)}. Exception: {ex}"
+                f"{' '.join(command)}. Exception: {e}"
             )
-            return {
-                "error": f"Unexpected exception: {ex}"
-            }
+            error_msg = f"Unexpected error: {str(e)}"
+            result["error"] = error_msg
+
+        return result
 
     def _post_run(self, target: str, result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -197,9 +243,13 @@ class Module():
         :param result: The raw result dictionary from the execute method
         :return: A dictionary containing the final processed results
         """
-        logger.info(f"[i] Completed execution for target: {target}")
+        if not result["success"]:
+            return {
+                "error": result["error"],
+                "returncode": result["returncode"]
+            }
 
-        return result
+        return {"result": result["output"]}
 
     def run(self) -> Dict[str, Any]:
         """
@@ -212,15 +262,15 @@ class Module():
             self._pre_run(target_str)
             command = self._build_command(target_str)
             result = self._execute_command(command)
-            final_result = self._post_run(target_str, result)
-            return final_result
-        except Exception as ex:
-            logger.exception(
-                f"[ERR] An unexpected error occurred, "
-                f"target '{self.target}': {ex}"
-            )
-            return {"error": f"Unexpected error: {ex}"}
+            return self._post_run(target_str, result)
 
+        except Exception as e:
+            logger.exception(
+                f"Critical error in module {self.__class__.__name__}: {e}"
+            )
+            return {"error": str(e), "success": False}
+
+    @classmethod
     @abc.abstractmethod
     def check_availability(self) -> bool:
         """
@@ -232,3 +282,18 @@ class Module():
         raise NotImplementedError(
             "Subclasses must implement the check_availability method"
         )
+
+    @classmethod
+    def get_version(cls) -> Optional[str]:
+        """
+        Get version of tool
+        """
+        try:
+            result = subprocess.run(
+                [f"{cls.required_binary}", "--version"],
+                capture_output=True,
+                text=True
+            )
+            return result.stdout.strip()
+        except Exception:
+            return None

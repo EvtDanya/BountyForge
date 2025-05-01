@@ -1,6 +1,7 @@
 import logging
 import shutil
 import datetime
+import validators
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 from bountyforge.config import settings, Config
@@ -31,16 +32,15 @@ def api_login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
-
     if not verify_password(username, password):
         return jsonify({"error": "Invalid credentials"}), 401
+
     access_token = create_access_token(
         identity=username,
         expires_delta=datetime.timedelta(
             hours=settings.backend.session_lifetime
         )
     )
-    print(f"Access token: {access_token}")
     return jsonify(access_token=access_token), 200
 
 
@@ -82,15 +82,107 @@ def save_config():
         return jsonify({"error": str(ex)}), 500
 
 
+def is_valid_target(entry: str) -> bool:
+    """
+    Validate that entry is one of:
+      - a valid IPv4 address
+      - a valid domain name
+      - a valid URL
+    """
+    if not isinstance(entry, str) or not entry:
+        return False
+
+    return (
+        validators.ipv4(entry) or
+        validators.domain(entry) or
+        validators.url(entry)
+    )
+
+
+def filter_valid(entries):
+    """
+    Filter a list of strings through is_valid_target(),
+    returning (valid_list, skipped_list)
+    """
+    valid, skipped = [], []
+    for e in entries:
+        if is_valid_target(e):
+            valid.append(e)
+        else:
+            skipped.append(e)
+    return valid, skipped
+
+
+# @config_api.route('/api/start_scan', methods=['POST'])
+# @jwt_required()
+# def start_scan():
+#     """
+#     Endpoint for starting a scan
+#     """
+#     data = request.get_json()
+#     logger.info(data)
+#     if not data:
+#         return jsonify({"error": "No data provided"}), 400
+
+#     target = data.get("target", [])
+#     if not isinstance(target, list) or not target:
+#         return jsonify({"error": "Invalid hosts for scanning"}), 400
+#     # if not check_hosts_for_scan(data.get("target", [])):
+#     #     return jsonify({"error": "Invalid hosts for scanning"}), 400
+
+#     filtered_hosts = list(filter(validators.domain, target))
+#     not_hosts = list(set(target) - set(filtered_hosts))
+#     if not filtered_hosts:
+#         logger.warning(f"No valid hosts provided: {not_hosts}")
+#         return jsonify({"error": "No valid hosts provided"}), 400
+
+#     if not_hosts:
+#         logger.warning(f"Invalid hosts: {not_hosts}")
+
+#     # task = run_scan_task.delay(data)  # Запуск задачи в фоне
+#     return jsonify({"message": "OK"}), 202
+
+
 @config_api.route('/api/start_scan', methods=['POST'])
 @jwt_required()
 def start_scan():
     """
     Endpoint for starting a scan
     """
-    # data = request.get_json()
-    # task = run_scan_task.delay(data)  # Запуск задачи в фоне
-    return jsonify({"message": "\"><img src=x onerror=alert()>"}), 202
+    data = request.get_json() or {}
+    logger.info(f"Received scan request: {data}")
+
+    raw = data.get("target")
+    if not isinstance(raw, list) or not raw:
+        return jsonify({"error": "Invalid or empty 'target' list"}), 400
+
+    valid = []
+    invalid = []
+    for entry in raw:
+        if is_valid_target(entry):
+            valid.append(entry)
+        else:
+            invalid.append(entry)
+
+    if not valid:
+        logger.warning(
+            f"No valid targets provided, all invalid: {invalid}"
+        )
+        return jsonify({"error": "No valid targets provided"}), 400
+
+    if invalid:
+        logger.warning(
+            f"Some targets are invalid and will be skipped: {invalid}"
+        )
+
+    # Здесь запускается фоновая задача, передаём только valid
+    # task = run_scan_task.delay({ **data, "target": valid })
+
+    return jsonify({
+        "message": "Scan job queued",
+        "valid_targets": valid,
+        "skipped_targets": invalid
+    }), 202
 
 
 @config_api.route('/api/check_modules', methods=['GET'])
@@ -103,9 +195,14 @@ def check_modules():
     #     'httpx': engine.check('httpx'),
     #     # ... остальные модули ...
     # }
-    return jsonify(
-        {"test": False, "test2": True, "test3": False}
-    ), 200
+    statuses = {
+        "nmap": True,
+        "subfinder": True,
+        "httpx": False,
+        # ...
+    }
+
+    return jsonify(statuses), 200
 
 
 @config_api.route('/api/hosts', methods=['GET'])

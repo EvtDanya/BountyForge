@@ -19,11 +19,12 @@ class NmapModule(Module):
         additional_flags: List[str] = None
     ) -> None:
         super().__init__(scan_type, target, target_type, additional_flags)
+        self.required_binary = "nmap"
 
     def _build_command(self, target_str: str) -> List[str]:
-        super()._build_command(target_str)
+        command = super()._build_base_command()
 
-        command = ["nmap", "-Pn"]
+        command += ["-Pn"]
 
         match self.scan_type:
             case ScanType.AGGRESSIVE:

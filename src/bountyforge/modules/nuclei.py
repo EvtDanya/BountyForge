@@ -32,12 +32,13 @@ class NucleiModule(Module):
             additional_flags=additional_flags
         )
         self.templates_dir = templates_dir
+        self.required_binary = "nuclei"
 
     def _build_command(self, target_str: str) -> List[str]:
         """
         Construct the nuclei command based on target and configuration.
         """
-        cmd = ["nuclei"]
+        cmd = super()._build_base_command()
 
         if self.target_type == TargetType.SINGLE:
             cmd += ["-u", target_str]
@@ -87,6 +88,16 @@ class NucleiModule(Module):
                 # fallback to raw
                 return {"output": output}
         return result
+
+    def check_availability(self) -> bool:
+        """
+        Check if nuclei is installed and available in PATH
+        Returns True if nuclei --version executes successfully
+        :return: _description_
+        :rtype: bool
+        """
+        result = self.get_version()
+        return "Version" in result
 
     def update_templates(self) -> None:
         """

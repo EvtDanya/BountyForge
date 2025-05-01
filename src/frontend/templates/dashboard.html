@@ -70,21 +70,21 @@
             <div class="mb-3">
               <label for="target_type" class="form-label">Target Type:</label>
               <select class="form-select" id="target_type" name="target_type">
-                <option value="single">Single</option>
-                <option value="multiple">Multiple</option>
+                <!-- <option value="single">Single</option> -->
+                <option value="multiple">Single/Multiple</option>
                 <option value="file">File (upload .txt)</option>
               </select>
             </div>
 
             <!-- Single target input -->
-            <div class="mb-3" id="single_target_group">
+            <!-- <div class="mb-3" id="single_target_group">
               <label for="target_single" class="form-label">Target:</label>
-              <input type="text" class="form-control" id="target_single" name="target_single" placeholder="example.com">
-            </div>
+              <input type="text" class="form-control" id="target_single" name="target" placeholder="example.com">
+            </div> -->
 
             <!-- Multiple targets textarea -->
             <div class="mb-3 d-none" id="multiple_target_group">
-              <label for="target_multiple" class="form-label">Targets (one per line):</label>
+              <label for="target_multiple" class="form-label">Target(-s) (one per line):</label>
               <textarea class="form-control" id="target_multiple" name="target_multiple" rows="5"
                         placeholder="example.com
 test.com
@@ -120,7 +120,7 @@ dev.internal.local"></textarea>
             </div>
 
             <!-- Nmap settings -->
-            <div id="nmap_settings" class="mb-3 tool-settings d-none">
+            <!-- <div id="nmap_settings" class="mb-3 tool-settings d-none">
               <h5>Nmap Settings</h5>
               <div class="mb-2">
                 <label class="form-label">Scan Mode:</label>
@@ -134,16 +134,16 @@ dev.internal.local"></textarea>
                 <label class="form-label">Additional Flags:</label>
                 <input type="text" class="form-control" name="nmap_flags" placeholder="-v">
               </div>
-            </div>
+            </div> -->
 
             <!-- Subfinder settings -->
-            <div id="subfinder_settings" class="mb-3 tool-settings d-none">
+            <!-- <div id="subfinder_settings" class="mb-3 tool-settings d-none">
               <h5>Subfinder Settings</h5>
               <div class="mb-2">
                 <label class="form-label">Additional Flags:</label>
                 <input type="text" class="form-control" name="subfinder_flags" placeholder="">
               </div>
-            </div>
+            </div> -->
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -180,217 +180,232 @@ dev.internal.local"></textarea>
   </div>
 
   <!-- Scan result output -->
-  <div id="scanResult" class="mt-4"></div>
-{% endblock %}
+  <!-- <div id="scanResult" class="mt-4"></div> -->
 
-{% block scripts %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const CHECK_URL = "{{ api_check_modules_url }}";
-  const HOSTS_URL = "{{ api_hosts_url }}";
-  const SCAN_URL  = "{{ api_start_scan_url }}";
-  const token     = "{{ session.jwt_token }}";
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const CHECK_URL = "{{ api_check_modules_url }}";
+      const HOSTS_URL = "{{ api_hosts_url }}";
+      const SCAN_URL  = "{{ api_start_scan_url }}";
+      const token     = "{{ session.jwt_token }}";
 
-  // Показываем alert вверху страницы
-  function showAlert(type, message) {
-    document.getElementById('notificationArea').innerHTML = `
-      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>`;
-  }
+      // Helper to show Bootstrap alerts
+      function showAlert(type, message) {
+        const area = document.getElementById('notificationArea');
+        area.innerHTML = `
+          <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>`;
+      }
 
-  // --- Check Modules ---
-  const btnCheck   = document.getElementById('checkModulesBtn');
-  const statusCont = document.getElementById('moduleStatus');
-  btnCheck.addEventListener('click', async () => {
-    btnCheck.disabled = true;
-    btnCheck.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-    statusCont.innerHTML = '';
-    try {
-      const res = await fetch(CHECK_URL, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const ul = document.createElement('ul');
-      ul.className = 'list-unstyled mb-0';
-      Object.entries(data).forEach(([mod, ok]) => {
-        const li = document.createElement('li');
-        li.innerHTML = ok
-          ? '<i class="fas fa-check-circle text-success"></i> ' + mod
-          : '<i class="fas fa-times-circle text-danger"></i> ' + mod;
-        ul.appendChild(li);
-      });
-      statusCont.appendChild(ul);
-    } catch (err) {
-      console.error('Module check error:', err);
-      showAlert('danger', `Error checking modules: ${err.message}`);
-    } finally {
-      btnCheck.disabled = false;
-      btnCheck.innerHTML = '<i class="fas fa-sync-alt"></i> Check Modules';
-    }
-  });
-
-  // --- Scan Form ---
-  const targetTypeEl      = document.getElementById('target_type');
-  const singleGroup       = document.getElementById('single_target_group');
-  const multipleGroup     = document.getElementById('multiple_target_group');
-  const fileGroup         = document.getElementById('file_target_group');
-  const excludeEl         = document.getElementById('target_exclude');
-  const scanForm          = document.getElementById('scanForm');
-  const scanResult        = document.getElementById('scanResult');
-  const toolNmap          = document.getElementById('tool_nmap');
-  const toolSubfinder     = document.getElementById('tool_subfinder');
-  const nmapSettings      = document.getElementById('nmap_settings');
-  const subfinderSettings = document.getElementById('subfinder_settings');
-  const scanFormAlert     = document.getElementById('scanFormAlert');
-
-  // переключение блоков ввода
-  targetTypeEl.addEventListener('change', () => {
-    singleGroup.classList.toggle('d-none', targetTypeEl.value!=='single');
-    multipleGroup.classList.toggle('d-none', targetTypeEl.value!=='multiple');
-    fileGroup.classList.toggle('d-none', targetTypeEl.value!=='file');
-  });
-  toolNmap.addEventListener('change', () => {
-    nmapSettings.classList.toggle('d-none', !toolNmap.checked);
-  });
-  toolSubfinder.addEventListener('change', () => {
-    subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
-  });
-
-  scanForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    scanFormAlert.innerHTML = '';
-    let targets, tt = targetTypeEl.value;
-
-    try {
-      if (tt==='file') {
-        const f = document.getElementById('target_file');
-        if (!f.files.length) throw new Error('Please select a file');
-        const fd = new FormData(); fd.append('target_file', f.files[0]);
-        const up = await fetch('/upload_targets', {
-          method:'POST', credentials:'include', body:fd
-        });
-        if (!up.ok) {
-          const err = await up.json();
-          throw new Error(err.error||'Upload failed');
+      // Check Modules logic
+      const btnCheck   = document.getElementById('checkModulesBtn');
+      const statusCont = document.getElementById('moduleStatus');
+      btnCheck.addEventListener('click', async () => {
+        btnCheck.disabled = true;
+        btnCheck.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+        statusCont.innerHTML = '';
+        try {
+          const res = await fetch(CHECK_URL, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const ul = document.createElement('ul');
+          ul.className = 'list-unstyled mb-0';
+          Object.entries(data).forEach(([mod, ok]) => {
+            const li = document.createElement('li');
+            const icon = ok
+              ? '<i class="fas fa-check-circle text-success"></i>'
+              : '<i class="fas fa-times-circle text-danger"></i>';
+            li.innerHTML = `${icon} <strong>${mod}</strong>`;
+            ul.appendChild(li);
+          });
+          statusCont.appendChild(ul);
+        } catch (err) {
+          console.error('Module check error:', err);
+          showAlert('danger', `Error checking modules: ${err.message}`);
+        } finally {
+          btnCheck.disabled = false;
+          btnCheck.innerHTML = '<i class="fas fa-sync-alt"></i> Check Modules';
         }
-        targets = (await up.json()).targets;
-        tt = 'multiple';
-      } else if (tt==='multiple') {
-        const raw = document.getElementById('target_multiple').value.trim();
-        if (!raw) throw new Error('Please enter targets');
-        targets = raw.split(/\r?\n/).filter(Boolean);
-      } else {
-        const raw = document.getElementById('target_single').value.trim();
-        if (!raw) throw new Error('Please enter a target');
-        targets = raw;
-      }
-
-      const exRaw = excludeEl.value.trim();
-      const exclude = exRaw ? exRaw.split(/\r?\n/).filter(Boolean) : [];
-
-      const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
-                         .map(ch => ch.value);
-      const params = {};
-      if (tools.includes('nmap')) {
-        params.nmap = {
-          scan_type: document.querySelector('select[name="nmap_mode"]').value,
-          additional_flags: document.querySelector('input[name="nmap_flags"]').value
-        };
-      }
-      if (tools.includes('subfinder')) {
-        params.subfinder = {
-          additional_flags: document.querySelector('input[name="subfinder_flags"]').value
-        };
-      }
-
-      const payload = { target: targets, exclude, target_type: tt, tools, params };
-      const res = await fetch(SCAN_URL, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+token
-        },
-        body: JSON.stringify(payload)
       });
 
-      const text = await res.text();
-      if (!res.ok) {
-        let msg = text;
-        try { msg = JSON.parse(text).error } catch {}
-        throw new Error(msg||res.statusText);
-      }
+      // Scan form logic
+      const targetTypeEl      = document.getElementById('target_type');
+      // const singleGroup       = document.getElementById('single_target_group');
+      const multipleGroup     = document.getElementById('multiple_target_group');
+      const fileGroup         = document.getElementById('file_target_group');
+      const excludeEl         = document.getElementById('target_exclude');
+      const scanForm          = document.getElementById('scanForm');
+      // const scanResult        = document.getElementById('scanResult');
+      const toolNmap          = document.getElementById('tool_nmap');
+      const toolSubfinder     = document.getElementById('tool_subfinder');
+      // const nmapSettings      = document.getElementById('nmap_settings');
+      // const subfinderSettings = document.getElementById('subfinder_settings');
+      const scanFormAlert     = document.getElementById('scanFormAlert');
 
-      const json = JSON.parse(text);
-      scanResult.innerHTML = `<pre>${JSON.stringify(json,null,2)}</pre>`;
-      bootstrap.Modal.getInstance(
-        document.getElementById('launchScanModal')
-      ).hide();
-      showAlert('success','Scan started successfully');
-    } catch (err) {
-      console.error('Scan error:', err);
-      scanFormAlert.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
-    }
-  });
-
-  // --- Hosts Modal ---
-  const hostsModal    = document.getElementById('hostsModal');
-  const hostsForm     = document.getElementById('hostsForm');
-  const hostsTextarea = document.getElementById('hostsTextarea');
-  const hostsAlert    = document.getElementById('hostsAlert');
-
-  hostsModal.addEventListener('show.bs.modal', async () => {
-    hostsAlert.innerHTML = '';
-    hostsTextarea.value = 'Loading…';
-    try {
-      const res = await fetch(HOSTS_URL, {
-        headers:{ 'Authorization':'Bearer '+token }
+      targetTypeEl.addEventListener('change', () => {
+        // singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
+        multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
+        fileGroup.classList.toggle('d-none', targetTypeEl.value !== 'file');
       });
-      const text = await res.text();
-      if (!res.ok) {
-        const j = JSON.parse(text);
-        throw new Error(j.error||res.statusText);
-      }
-      hostsTextarea.value = JSON.parse(text).hosts||'';
-    } catch (err) {
-      console.error('Hosts load error:', err);
-      hostsTextarea.value = '';
-      hostsAlert.innerHTML = `<div class="alert alert-danger">Error loading hosts: ${err.message}</div>`;
-    }
-  });
+      // toolNmap.addEventListener('change', () => {
+      //   nmapSettings.classList.toggle('d-none', !toolNmap.checked);
+      // });
+      // toolSubfinder.addEventListener('change', () => {
+      //   subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
+      // });
 
-  hostsForm.addEventListener('submit', async e => {
-    e.preventDefault();
-    hostsAlert.innerHTML = '';
-    try {
-      const res = await fetch(HOSTS_URL, {
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+token
-        },
-        body: JSON.stringify({ hosts: hostsTextarea.value })
+      scanForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        scanFormAlert.innerHTML = '';  // clear previous errors
+
+        let targets;
+        let tt = targetTypeEl.value;
+
+        try {
+          if (tt === 'file') {
+            const fileInput = document.getElementById('target_file');
+            if (!fileInput.files.length) throw new Error('Please select a file');
+            const fd = new FormData();
+            fd.append('target_file', fileInput.files[0]);
+            const up = await fetch('/upload_targets', {
+              method: 'POST',
+              credentials: 'include',
+              body: fd
+            });
+            if (!up.ok) {
+              const errJson = await up.json();
+              throw new Error(errJson.error || 'File upload failed');
+            }
+            const jsonUp = await up.json();
+            targets = jsonUp.targets;
+            tt = 'multiple';
+          } else if (tt === 'multiple') {
+            const raw = document.getElementById('target_multiple').value.trim();
+            if (!raw) throw new Error('Please enter targets');
+            targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          } 
+          // else {
+          //   const raw = document.getElementById('target_single').value.trim();
+          //   if (!raw) throw new Error('Please enter a target');
+          //   targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          // }
+
+          // Exclusions
+          const exRaw = excludeEl.value.trim();
+          const exclude = exRaw
+            ? exRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+            : [];
+
+          // Tools & params
+          const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
+                             .map(chk => chk.value);
+          // const params = {};
+          // if (tools.includes('nmap')) {
+          //   params.nmap = {
+          //     scan_type: document.querySelector('select[name="nmap_mode"]').value,
+          //     additional_flags: document.querySelector('input[name="nmap_flags"]').value
+          //   };
+          // }
+          // if (tools.includes('subfinder')) {
+          //   params.subfinder = {
+          //     additional_flags: document.querySelector('input[name="subfinder_flags"]').value
+          //   };
+          // }
+
+          const payload = {
+            target: targets,
+            exclude: exclude,
+            target_type: tt,
+            tools: tools
+            // params: params
+          };
+
+          const res = await fetch(SCAN_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            let msg = errText;
+            try { msg = JSON.parse(errText).error || errText } catch {}
+            throw new Error(msg);
+          }
+
+          const result = await res.json();
+          // scanResult.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+          bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
+          showAlert('success', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+        } catch (err) {
+          console.error('Scan error:', err);
+          scanFormAlert.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+        }
       });
-      const text = await res.text();
-      if (!res.ok) {
-        const j = JSON.parse(text);
-        throw new Error(j.error||res.statusText);
-      }
-      console.log('Hosts saved:', text);
-      hostsAlert.innerHTML = '<div class="alert alert-success">Hosts updated successfully</div>';
-    } catch (err) {
-      console.error('Hosts save error:', err);
-      hostsAlert.innerHTML = `<div class="alert alert-danger">Error saving hosts: ${err.message}</div>`;
-    }
-  });
 
-  // initialize popovers
-  var pop = [].slice.call(
-    document.querySelectorAll('[data-bs-toggle="popover"]')
-  );
-  pop.map(el=>new bootstrap.Popover(el));
-});
-</script>
+      // Hosts editing logic
+      const hostsModal    = document.getElementById('hostsModal');
+      const hostsForm     = document.getElementById('hostsForm');
+      const hostsTextarea = document.getElementById('hostsTextarea');
+      const hostsAlert    = document.getElementById('hostsAlert');
+
+      hostsModal.addEventListener('show.bs.modal', async () => {
+        hostsAlert.innerHTML = '';
+        hostsTextarea.value = 'Loading…';
+        try {
+          const res = await fetch(HOSTS_URL, {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const text = await res.text();
+          if (!res.ok) {
+            const parsed = JSON.parse(text);
+            throw new Error(parsed.error || res.statusText);
+          }
+          const j = JSON.parse(text);
+          hostsTextarea.value = j.hosts || '';
+        } catch (e) {
+          console.error('Hosts load error:', e);
+          hostsTextarea.value = '';
+          hostsAlert.innerHTML = `<div class="alert alert-danger">Error loading hosts: ${e.message}</div>`;
+        }
+      });
+
+      hostsForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        hostsAlert.innerHTML = '';
+        try {
+          const res = await fetch(HOSTS_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ hosts: hostsTextarea.value })
+          });
+          const text = await res.text();
+          if (!res.ok) {
+            const parsed = JSON.parse(text);
+            throw new Error(parsed.error || res.statusText);
+          }
+          console.log('Hosts saved:', text);
+          hostsAlert.innerHTML = '<div class="alert alert-success">Hosts updated successfully</div>';
+        } catch (err) {
+          console.error('Hosts save error:', err);
+          hostsAlert.innerHTML = `<div class="alert alert-danger">Error saving hosts: ${err.message}</div>`;
+        }
+      });
+
+      // Initialize Bootstrap popovers
+      var popoverTriggerList = [].slice.call(
+        document.querySelectorAll('[data-bs-toggle="popover"]')
+      );
+      popoverTriggerList.map(el => new bootstrap.Popover(el));
+    });
+  </script>
 {% endblock %}

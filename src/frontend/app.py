@@ -10,7 +10,7 @@ from datetime import timedelta
 from bountyforge.config import settings
 from bountyforge.utils import init_logging
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('web')
 init_logging(logger)
 
 app = Flask(__name__)
@@ -100,6 +100,13 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated_function
+
+
+@app.context_processor
+def inject_version():
+    return {
+        "project_version": settings.backend.project_version
+    }
 
 
 @app.route("/")
