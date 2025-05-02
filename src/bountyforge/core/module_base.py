@@ -145,6 +145,9 @@ class Module():
         return path
 
     def _validate_headers(self, headers: dict):
+        """
+        Validate optional headers provided for web scanning
+        """
         for k, v in headers.items():
             if not isinstance(k, str) or not isinstance(v, str):
                 raise ValueError("Headers must be string key-value pairs")

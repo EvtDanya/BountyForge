@@ -216,7 +216,7 @@ def check_modules():
                 "available": False,
                 "version": None
             }
-    
+
     return jsonify(statuses), 200
 
 

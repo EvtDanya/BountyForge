@@ -83,7 +83,7 @@
             </div> -->
 
             <!-- Multiple targets textarea -->
-            <div class="mb-3 d-none" id="multiple_target_group">
+            <div class="mb-3" id="multiple_target_group">
               <label for="target_multiple" class="form-label">Target(-s) (one per line):</label>
               <textarea class="form-control" id="target_multiple" name="target_multiple" rows="5"
                         placeholder="example.com
@@ -270,12 +270,13 @@ Authorization: Bearer token"></textarea>
       // const nmapSettings      = document.getElementById('nmap_settings');
       // const subfinderSettings = document.getElementById('subfinder_settings');
       const scanFormAlert     = document.getElementById('scanFormAlert');
-
+ 
       targetTypeEl.addEventListener('change', () => {
         // singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
         multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
         fileGroup.classList.toggle('d-none', targetTypeEl.value !== 'file');
       });
+      // targetTypeEl.dispatchEvent(new Event('change'));
       // toolNmap.addEventListener('change', () => {
       //   nmapSettings.classList.toggle('d-none', !toolNmap.checked);
       // });
@@ -326,7 +327,7 @@ Authorization: Bearer token"></textarea>
             : [];
 
           // Headers
-          const headersText = formData.get('headers');
+          const headersText = scanForm.querySelector('textarea[name="headers"]').value.trim();
           const headers = {};
           if (headersText) {
               headersText.split('\n').forEach(line => {
@@ -357,7 +358,6 @@ Authorization: Bearer token"></textarea>
             target: targets,
             exclude: exclude,
             target_type: tt,
-            headers: headers,
             tools: tools
             // params: params
           };

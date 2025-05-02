@@ -18,9 +18,9 @@ ENV PYTHONPATH="/app/"
 
 RUN mkdir -p /var/log/bountyforge
 
-COPY ./src/frontend/app.py ./app.py
+# COPY ./src/frontend/app.py ./app.py
 
 EXPOSE $APP__PORT
 
-CMD ["python", "app.py"]
+CMD ["python", "frontend/app.py"]
 # CMD ["poetry", "run", "python", "app.py"]

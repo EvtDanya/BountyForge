@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict
-from bountyforge.core.module_base import Module
+from bountyforge.core import Module
 
 logger = logging.getLogger(__name__)
 

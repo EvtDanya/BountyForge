@@ -52,11 +52,15 @@ class BaseApp(object):
         if isinstance(self.workers, str):
             self.workers = int(self.workers)
 
+        if isinstance(self.session_lifetime, str):
+            self.session_lifetime = int(self.session_lifetime)
+
 
 @dataclass
 class BackendBountyForge(BaseApp):
     celery_broker_url: str = "redis://redis:6379/0"
-    mongo_uri: str = "mongodb://mongo:27017"
+    mongo_url: str = "mongodb://mongo:27017"
+    frontend_host: str = "localhost"
     threads: int = 1
     timeout: int = 120
     rate_limit: int = "20"
@@ -85,6 +89,7 @@ class BackendBountyForge(BaseApp):
 class FrontendBountyForge(BaseApp):
     session_secret: str = "default_secret_key"
     port: int = 8080
+    backend_host: str = "localhost"
 
     def __post_init__(self):
         super().__post_init__()

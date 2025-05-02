@@ -25,6 +25,9 @@ users = {
 }
 
 BACKEND_URL = f"http://{settings.backend.host}:{settings.backend.port}"
+if settings.backend.host == "0.0.0.0":
+    BACKEND_URL = f"http://127.0.0.1:{settings.backend.port}"
+INTERNAL_BACKEND_URL = f"http://{settings.frontend.backend_host}:{settings.backend.port}"  # noqa
 
 
 @auth.verify_password
@@ -62,7 +65,7 @@ def login():
 
         try:
             auth_response = requests.post(
-                f"{BACKEND_URL}/api/login",
+                f"{INTERNAL_BACKEND_URL}/api/login",
                 json={"username": username, "password": password},
                 timeout=5
             )

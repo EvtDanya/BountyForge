@@ -88,7 +88,7 @@ def create_app() -> flask.Flask | None:
         app,
         resources={
             r"/api/*": {
-                "origins": f"http://{settings.frontend.host}:{settings.frontend.port}",  # noqa
+                "origins": '*', # f"http://{settings.backend.frontend_host}:{settings.frontend.port}",  # noqa
                 "allow_headers": ["Authorization", "Content-Type"],
                 "supports_credentials": True
             }

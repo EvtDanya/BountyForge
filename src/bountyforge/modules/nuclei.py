@@ -110,6 +110,13 @@ class NucleiModule(Module):
             "version": version
         }
 
+    def _validate_templates(self):
+        """
+        Validate PATH for templates
+        """
+        if not os.Path(self.template_dir).exists():
+            raise Exception("Invalid template directory")
+
     def update_templates(self) -> None:
         """
         Update the nuclei templates to the latest version.

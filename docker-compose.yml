@@ -1,20 +1,90 @@
-version: '3.8'
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: bf-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis_data:/data
+    networks:
+      - bountyforge-net
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  mongo:
+    image: mongo:6.0
+    container_name: bf-mongo
+    healthcheck:
+      test: |
+        echo 'db.runCommand("ping").ok' | mongosh --quiet --username ${MONGO_USER} --password ${MONGO_PASSWORD} --authenticationDatabase admin
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - bountyforge-net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      tags: ["bf-backend:latest"]  # Добавляем тег для образа
+    container_name: bf-backend
+    networks:
+      - bountyforge-net
+    env_file:
+      - .env
+    ports:
+      - "${BACKEND__PORT}:${BACKEND__PORT}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      tags: ["bf-backend:latest"]  # Используем тот же тег
+    container_name: bf-celery-worker
+    command: celery -A bountyforge.tasks worker --loglevel=info --concurrency=${CELERY__WORKERS}
+    networks:
+      - bountyforge-net
+    env_file:
+      - .env
+    depends_on:
+      - backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      tags: ["bf-frontend:latest"]  # Добавляем тег для фронтенда
+    container_name: bf-frontend
+    networks:
+      - bountyforge-net
+    env_file:
+      - .env
+    ports:
+      - "${FRONTEND__PORT}:${FRONTEND__PORT}"
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
+  redis_data:
 
 networks:
-  bf-net:
+  bountyforge-net:
     driver: bridge
-
-services:
-  dockertrap:
-    build: .
-    volumes:
-      - ./src/bountyforge:/app/bountyforge
-    ports:
-      - ${APP__PORT}:${APP__PORT}
-    restart: unless-stopped
-    environment:
-      APP__HOST: 0.0.0.0
-      APP__PORT: ${APP__PORT}
-      LOGGING__LEVEL: DEBUG
-    networks:
-      - bf-net
