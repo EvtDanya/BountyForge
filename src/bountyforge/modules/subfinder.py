@@ -18,7 +18,7 @@ class SubfinderModule(Module):
         additional_flags: List[str] = None
     ) -> None:
         super().__init__(ScanType.RECON, target, target_type, additional_flags)
-        self.required_binary = "subfinder"
+        self.binary_name = "subfinder"
 
     def _build_command(self, target_str: str) -> List[str]:
         super()._build_command(target_str)

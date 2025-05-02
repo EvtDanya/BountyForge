@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Union
-from core.module_base import Module, ScanType, TargetType
+from bountyforge.core import Module, ScanType, TargetType
 import os
+import re
 
 
 class NucleiModule(Module):
@@ -32,7 +33,7 @@ class NucleiModule(Module):
             additional_flags=additional_flags
         )
         self.templates_dir = templates_dir
-        self.required_binary = "nuclei"
+        self.binary_name = "nuclei"
 
     def _build_command(self, target_str: str) -> List[str]:
         """
@@ -89,15 +90,25 @@ class NucleiModule(Module):
                 return {"output": output}
         return result
 
-    def check_availability(self) -> bool:
+    @staticmethod
+    def _parse_version(output: str) -> str:
+        # nuclei -version output: "Current Version: 2.8.3"
+        match = re.search(r'Current Version: (\d+\.\d+\.\d+)', output)
+        return match.group(1) if match else "unknown"
+
+    @classmethod
+    def check_availability(cls) -> bool:
         """
         Check if nuclei is installed and available in PATH
         Returns True if nuclei --version executes successfully
         :return: _description_
         :rtype: bool
         """
-        result = self.get_version()
-        return "Version" in result
+        version = cls.get_version()
+        return {
+            "available": version is not None,
+            "version": version
+        }
 
     def update_templates(self) -> None:
         """

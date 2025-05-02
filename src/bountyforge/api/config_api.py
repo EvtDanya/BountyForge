@@ -8,6 +8,11 @@ from bountyforge.config import settings, Config
 from flask_jwt_extended import (
   JWTManager, create_access_token, jwt_required
 )
+from bountyforge.modules import (
+    HttpxModule, NmapModule,
+    NucleiModule, SubdomainBruteforceModule, SubfinderModule
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +155,7 @@ def start_scan():
     Endpoint for starting a scan
     """
     data = request.get_json() or {}
+    headers = data.get('headers', {})
     logger.info(f"Received scan request: {data}")
 
     raw = data.get("target")
@@ -186,22 +192,31 @@ def start_scan():
 
 
 @config_api.route('/api/check_modules', methods=['GET'])
-@jwt_required()  # или @login_required
+@jwt_required()
 def check_modules():
-    # Здесь логика проброса по всем модулям: вызываете ping() или dry‑run
-    # statuses = {
-    #     'nmap':   engine.check('nmap'),
-    #     'subfinder': engine.check('subfinder'),
-    #     'httpx': engine.check('httpx'),
-    #     # ... остальные модули ...
-    # }
-    statuses = {
-        "nmap": True,
-        "subfinder": True,
-        "httpx": False,
-        # ...
+    modules = {
+        "nmap": NmapModule,
+        "nuclei": NucleiModule,
+        "httpx": HttpxModule,
+        "subfinder": SubfinderModule,
+        "subdomain_bruteforce": SubdomainBruteforceModule
     }
 
+    statuses = {}
+    for name, module_cls in modules.items():
+        try:
+            status = module_cls.check_availability()
+            statuses[name] = {
+                "available": status["available"],
+                "version": status["version"]
+            }
+        except Exception as e:
+            logger.error(f"Check failed for {name}: {str(e)}")
+            statuses[name] = {
+                "available": False,
+                "version": None
+            }
+    
     return jsonify(statuses), 200
 
 

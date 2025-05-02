@@ -106,6 +106,17 @@ sub.domain.com"></textarea>
 dev.internal.local"></textarea>
             </div>
 
+            <div class="mb-3">
+              <label class="form-label">Custom Headers:</label>
+              <textarea 
+                  class="form-control"
+                  name="headers"
+                  rows="3"
+                  placeholder="X-API-Key: 12345
+Authorization: Bearer token"></textarea>
+              <small class="text-muted">По одному заголовку на строку в формате "Header: Value"</small>
+            </div>
+
             <!-- Tool selection -->
             <h4>Select Tools</h4>
             <div class="mb-3">
@@ -214,12 +225,26 @@ dev.internal.local"></textarea>
           const data = await res.json();
           const ul = document.createElement('ul');
           ul.className = 'list-unstyled mb-0';
-          Object.entries(data).forEach(([mod, ok]) => {
+          Object.entries(data).forEach(([mod, info]) => {
             const li = document.createElement('li');
-            const icon = ok
-              ? '<i class="fas fa-check-circle text-success"></i>'
-              : '<i class="fas fa-times-circle text-danger"></i>';
-            li.innerHTML = `${icon} <strong>${mod}</strong>`;
+            li.className = 'd-flex justify-content-between align-items-center';
+            
+            const icon = info.available 
+                ? '<i class="fas fa-check-circle text-success me-2"></i>' 
+                : '<i class="fas fa-times-circle text-danger me-2"></i>';
+            
+            const versionText = info.version 
+                ? `<span class="text-light ms-2">v${info.version}</span>` 
+                : '<span class="text-danger">not available</span>';
+            
+            li.innerHTML = `
+                <div class="d-flex align-items-center">
+                    ${icon}
+                    <span class="fw-bold text-nowrap">${mod}</span>
+                </div>
+                ${versionText}
+            `;
+            
             ul.appendChild(li);
           });
           statusCont.appendChild(ul);
@@ -300,6 +325,18 @@ dev.internal.local"></textarea>
             ? exRaw.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
             : [];
 
+          // Headers
+          const headersText = formData.get('headers');
+          const headers = {};
+          if (headersText) {
+              headersText.split('\n').forEach(line => {
+                  const [key, ...values] = line.split(':');
+                  if (key && values) {
+                      headers[key.trim()] = values.join(':').trim();
+                  }
+              });
+          }
+
           // Tools & params
           const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
                              .map(chk => chk.value);
@@ -320,6 +357,7 @@ dev.internal.local"></textarea>
             target: targets,
             exclude: exclude,
             target_type: tt,
+            headers: headers,
             tools: tools
             // params: params
           };

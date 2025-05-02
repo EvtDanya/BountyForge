@@ -23,7 +23,7 @@ class HttpxModule(Module):
         # For httpx, we use RECON as the scan type by default
         super().__init__(ScanType.RECON, target, target_type, additional_flags)
         self.mode = mode.lower()
-        self.required_binary = "httpx"
+        self.binary_name = "httpx"
 
     def _build_command(self, target_str: str) -> List[str]:
         """
@@ -33,6 +33,7 @@ class HttpxModule(Module):
         :return: A list of command arguments to execute
         """
         command = super()._build_base_command()
+        command += self._prepare_headers(self.headers)
 
         command += ["-silent"]
 

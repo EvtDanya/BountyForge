@@ -10,6 +10,7 @@ import enum
 import os
 import abc
 import shutil
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class Module():
     target_type: TargetType = TargetType.SINGLE
     additional_flags: List[str] = None
     timeout: int = 7200  # 2 hours
-    required_binary: str = ""
+    binary_name: str = ""
 
     def __init__(
         self,
@@ -143,11 +144,31 @@ class Module():
             raise RuntimeError(f"Required binary {name} not found in PATH")
         return path
 
+    def _validate_headers(self, headers: dict):
+        for k, v in headers.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                raise ValueError("Headers must be string key-value pairs")
+            if ':' in k:
+                raise ValueError("Header name cannot contain ':'")
+
+    def _prepare_headers(self, headers: dict) -> List[str]:
+        """
+        Преобразование headers в CLI флаги
+        """
+        if not headers:
+            return []
+
+        self._validate_headers(headers)
+        flags = []
+        for key, value in headers.items():
+            flags.extend(["-H", f"{key}: {value}"])  #! nuclei/httpx
+        return flags
+
     def _build_base_command(self) -> List[str]:
         """
         Базовые проверки перед построением команды
         """
-        return [self._resolve_binary(self.required_binary)]
+        return [self._resolve_binary(self.binary_name)]
 
     def _build_command(self, target_str: str) -> List[str]:
         """
@@ -283,6 +304,14 @@ class Module():
             "Subclasses must implement the check_availability method"
         )
 
+    @staticmethod
+    def _parse_version(output: str) -> str:
+        """
+        Парсинг версии из вывода
+        """
+        match = re.search(r'\d+\.\d+\.\d+', output)
+        return match.group(0) if match else "unknown"
+
     @classmethod
     def get_version(cls) -> Optional[str]:
         """
@@ -290,10 +319,12 @@ class Module():
         """
         try:
             result = subprocess.run(
-                [f"{cls.required_binary}", "--version"],
+                [f"{cls.binary_name}", "--version"],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=5
             )
-            return result.stdout.strip()
-        except Exception:
+            return cls._parse_version(result.stdout or result.stderr)
+        except Exception as e:
+            logger.error(f"Version check failed: {str(e)}")
             return None
