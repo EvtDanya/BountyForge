@@ -325,7 +325,7 @@ class Module():
                 [f"{cls.binary_name}", "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=20
             )
             return cls._parse_version(result.stdout or result.stderr)
         except Exception as e:

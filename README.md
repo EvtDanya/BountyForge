@@ -1,12 +1,5 @@
 # BountyForge
 
-## Запуск
-
-```bash
-$env:PYTHONPATH="D:\My\Projects\BountyForge\src"
-py .\src\bountyforge\scripts\run.py
-```
-
 ## В работе
 
 
@@ -64,13 +57,12 @@ src/
 
 ### Docker
 
-Запуск в Docker окружении, позволяет взаимодействовать с локальным rabbitmq сервером с аналогичными HoneyCorn серверу настройками.
+Запуск в Docker окружении, позволяет взаимодействовать с локальным redis сервером.
 
 1. Установите последнюю версию docker для Linux, либо Docker Desktop для Windows или MacOS.
 2. Создайте файл `.env` в корневой директории шаблона, скопируйте содержимое `docker-example.env` в `.env`.
-3. Запустите доступный терминал коммандной строки, перейдите в папку `.docker` и сгенерируйте сертификаты с помощью команды `bash gen-certs.sh` (см. требования к запуску в _.docker/tls-gen/README.md_).
-4. В терминале перейдите в корневую директории шаблона и выполните `docker compose up -d`.
-5. Изменения в коде шаблона `src/dockertrap` будут применены после перезагрузки контейнера с ловушкой.
+3. В терминале перейдите в корневую директории шаблона и выполните `docker compose up -d`.
+4. Изменения в коде `src/bountyforge` будут применены после перезагрузки контейнера с сервисом.
 
 
 ### Python env
@@ -79,4 +71,16 @@ src/
 2. Активируйте venv окружение: `source env/bin/activate` (*linux)
 3. Установите необходимые зависимости: `python -m pip install -r requirements.txt && poetry install`
 4. Скопируйте содержимое `config.yaml.dist` в новый файл `config.yaml`, отредактируйте содержимое
-5. Запустите ловушку: `PYTHONPATH=$(pwd)/src python3 src/dockertrap/scripts/run.py` (*linux)
+5. Запустите сервис:  
+
+(*linux)
+```bash
+PYTHONPATH=$(pwd)/src python3 src/bountyforge/scripts/run.py
+```
+ 
+(*windows)
+```bash
+$env:PYTHONPATH="D:\My\Projects\BountyForge\src"
+py .\src\bountyforge\scripts\run.py
+```
+

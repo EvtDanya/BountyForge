@@ -1,10 +1,46 @@
 # syntax=docker/dockerfile:1
 
 FROM python:3.12-slim-bookworm
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    libpcap-dev \
+    wget \
+    ca-certificates \
+    nmap \
+    && rm -rf /var/lib/apt/lists/
+
+ENV GO_VERSION=1.21.7
+RUN wget -O go.tar.gz https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
+
+RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
+    && go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest \
+    && go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+
+RUN nuclei -update-templates
+# ENV SUBFINDER_VERSION=2.7.1 \
+#     HTTPX_VERSION=v1.7.0 \
+#     NUCLEI_VERSION=v3.4.2
+
+# RUN wget https://github.com/projectdiscovery/subfinder/releases/download/${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_amd64.tar.gz \
+#     && tar -xzf subfinder_${SUBFINDER_VERSION}_linux_amd64.tar.gz \
+#     && mv subfinder /usr/local/bin/ \
+#     && rm -rf subfinder_*
+
+# RUN wget https://github.com/projectdiscovery/httpx/releases/download/${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_amd64.tar.gz \
+#     && tar -xzf httpx_${HTTPX_VERSION}_linux_amd64.tar.gz \
+#     && mv httpx /usr/local/bin/ \
+#     && rm -rf httpx_*
+
+# RUN wget https://github.com/projectdiscovery/nuclei/releases/download/${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.tar.gz \
+#     && tar -xzf nuclei_${NUCLEI_VERSION}_linux_amd64.tar.gz \
+#     && mv nuclei /usr/local/bin/ \
+#     && rm -rf nuclei_*
 
 WORKDIR /app
-
-ARG APP__PORT
 
 COPY ./requirements.txt ./requirements.txt
 # COPY ./pyproject.toml ./pyproject.toml
@@ -19,8 +55,6 @@ ENV PYTHONPATH="/app/"
 RUN mkdir -p /var/log/bountyforge
 
 COPY ./src/bountyforge/scripts/run.py ./run.py
-
-EXPOSE $APP__PORT
 
 CMD ["python", "run.py"]
 # CMD ["poetry", "run", "python", "run.py"]
