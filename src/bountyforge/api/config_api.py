@@ -3,7 +3,10 @@ import shutil
 import datetime
 import redis
 import validators
-from flask import Blueprint, jsonify, request, Response, url_for
+import json
+from flask import (
+    Blueprint, jsonify, request, Response, url_for, stream_with_context
+)
 from werkzeug.security import generate_password_hash, check_password_hash
 from bountyforge.config import settings, Config
 from flask_jwt_extended import (
@@ -160,6 +163,7 @@ def start_scan():
     Endpoint for starting a scan
     """
     data = request.get_json() or {}
+    print(data)
     headers = data.get('headers', {})
     logger.info(f"Received scan request: {data}")
 
@@ -196,6 +200,7 @@ def start_scan():
         job_id=job.id,
         _external=True
     )
+    logger.info(f"Enqueued scan task: {job.id}")
 
     return jsonify({
         "message": "Scan job queued",
@@ -209,17 +214,29 @@ def start_scan():
 @config_api.route("/api/scan/stream/<job_id>")
 # @jwt_required()
 def scan_stream(job_id):
+    channel = f"scan:{job_id}"
+
     def event_stream():
         pubsub = redis_client.pubsub()
-        pubsub.subscribe(f"scan:{job_id}")
-        for msg in pubsub.listen():
-            if msg["type"] != "message":
-                continue
-            data = msg["data"]
-            if isinstance(data, bytes):
-                data = data.decode()
-            yield f"data: {data}\n\n"
-    return Response(event_stream(), mimetype="text/event-stream")
+        pubsub.subscribe(channel)
+        try:
+            for msg in pubsub.listen():
+                if msg['type'] != 'message':
+                    continue
+                data = msg['data'].decode('utf-8')
+                # каждое сообщение отсылаем клиенту
+                yield f"data: {data}\n\n"
+                # если «finished» — выходим
+                obj = json.loads(data)
+                if obj.get("event") == "finished":
+                    break
+        finally:
+            pubsub.close()
+
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype='text/event-stream'
+    )
 
 
 @config_api.route('/api/check_modules', methods=['GET'])

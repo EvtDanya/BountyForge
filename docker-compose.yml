@@ -11,6 +11,8 @@ services:
       start_period: 10s
     volumes:
       - redis_data:/data
+    ports:
+      - "6379:6379"
     networks:
       - bountyforge-net
     environment:
@@ -31,6 +33,8 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     volumes:
       - mongo_data:/data/db
+    ports:
+      - "27017:27017"
     networks:
       - bountyforge-net
 
@@ -58,13 +62,14 @@ services:
       dockerfile: Dockerfile.backend
       tags: ["bf-backend:latest"]  # Используем тот же тег
     container_name: bf-celery-worker
-    command: celery -A bountyforge.tasks worker --loglevel=info --concurrency=${CELERY__WORKERS}
+    command: celery -A bountyforge.core.task:celery worker --loglevel=info --concurrency=${CELERY__WORKERS}
     networks:
       - bountyforge-net
     env_file:
       - .env
     depends_on:
-      - backend
+      - redis
+      - mongo
 
   frontend:
     build:

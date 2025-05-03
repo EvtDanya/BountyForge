@@ -377,21 +377,26 @@ Authorization: Bearer token"></textarea>
           bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
           showAlert('success', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
 
-          const evtSource = new EventSource(stream_url, {
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                }
-            });
-            evtSource.onmessage = e => {
-              const evt = JSON.parse(e.data);
-              // evt может быть {tool, target, output,...} или {event:"finished"}
-              console.log("SSE event:", evt);
-              // тут можно динамически добавлять строки в таблицу прогресса
-              if (evt.event === "finished") {
+          const evtSource = new EventSource(stream_url);
+          evtSource.onmessage = e => {
+            const evt = JSON.parse(e.data);
+            console.log("SSE event:", evt);
+            switch(evt.event) {
+              case "started":
+                showAlert("info", "Scan started…");
+                break;
+              case "result":
+                // например, добавляем строку с evt.tool, evt.result или evt.error
+                break;
+              case "error":
+                showAlert("danger", `${evt.tool}: ${evt.msg}`);
+                break;
+              case "finished":
                 showAlert("success", "Scan finished");
                 evtSource.close();
-              }
-            };
+                break;
+            }
+          };
         } catch (err) {
           console.error('Scan error:', err);
           showAlert('danger', `${err.message}`);
