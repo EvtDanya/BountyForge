@@ -38,14 +38,16 @@ def run_scan_task(self, request: Dict[str, Any]):
     publish({"event": "started", "job_id": job_id})
 
     targets = request["target"]
-    tools   = request["tools"]
-    params  = request.get("params", {})
+    tools = request["tools"]
+    params = request.get("params", {})
 
     results = []
     for tool in tools:
         ModuleClass = module_manager.get_module(tool)
         if not ModuleClass:
-            publish({"event": "error", "tool": tool, "msg": "Module not found"})
+            publish(
+                {"event": "error", "tool": tool, "msg": "Module not found"}
+            )
             continue
 
         # собираем init-args…
@@ -57,12 +59,13 @@ def run_scan_task(self, request: Dict[str, Any]):
             init_kwargs["scan_type"] = ScanType(slot)
         if flags := params.get(tool, {}).get("additional_flags"):
             init_kwargs["additional_flags"] = flags
-        if tool == "nuclei" and (t_dir := params["nuclei"].get("templates_dir")):
+        if tool == "nuclei" and (
+            t_dir := params["nuclei"].get("templates_dir")
+        ):
             init_kwargs["templates_dir"] = t_dir
 
         mod = ModuleClass(**init_kwargs)
 
-        # небольшой callback чтобы модули внутри тоже могли пушить прогресс
         def on_event(evt: Dict[str, Any]):
             evt.update({"tool": tool})
             publish(evt)
@@ -73,7 +76,9 @@ def run_scan_task(self, request: Dict[str, Any]):
             res = mod.run()  # dict с результатом
             evt = {"event": "result", "tool": tool, **res}
             publish(evt)
-            results.append({**evt, "job_id": job_id, "timestamp": datetime.datetime.utcnow()})
+            results.append(
+                {**evt, "job_id": job_id, "timestamp": datetime.datetime.now()}
+            )
         except Exception as e:
             logger.exception(f"Error running {tool}")
             publish({"event": "error", "tool": tool, "msg": str(e)})
