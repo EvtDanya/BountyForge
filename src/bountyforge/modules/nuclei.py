@@ -1,7 +1,10 @@
 from typing import Any, Dict, List, Union
-from bountyforge.core import Module, ScanType, TargetType
 import os
-import re
+import subprocess
+import logging
+from bountyforge.core import Module, ScanType, TargetType
+
+logger = logging.getLogger(__name__)
 
 
 class NucleiModule(Module):
@@ -10,6 +13,7 @@ class NucleiModule(Module):
     Uses `nuclei` CLI to scan targets with given templates.
     """
     templates_dir: str = "./nuclei-templates"
+    binary_name = "nuclei"
 
     def __init__(
         self,
@@ -33,13 +37,13 @@ class NucleiModule(Module):
             additional_flags=additional_flags
         )
         self.templates_dir = templates_dir
-        self.binary_name = "nuclei"
 
     def _build_command(self, target_str: str) -> List[str]:
         """
         Construct the nuclei command based on target and configuration.
         """
         cmd = super()._build_base_command()
+        cmd += ["-silent", "-stats", "-json", "-disable-update-check"]
 
         if self.target_type == TargetType.SINGLE:
             cmd += ["-u", target_str]
@@ -90,26 +94,6 @@ class NucleiModule(Module):
                 return {"output": output}
         return result
 
-    @staticmethod
-    def _parse_version(output: str) -> str:
-        # nuclei -version output: "Current Version: 2.8.3"
-        match = re.search(r'Current Version: (\d+\.\d+\.\d+)', output)
-        return match.group(1) if match else "unknown"
-
-    @classmethod
-    def check_availability(cls) -> bool:
-        """
-        Check if nuclei is installed and available in PATH
-        Returns True if nuclei --version executes successfully
-        :return: _description_
-        :rtype: bool
-        """
-        version = cls.get_version()
-        return {
-            "available": version is not None,
-            "version": version
-        }
-
     def _validate_templates(self):
         """
         Validate PATH for templates
@@ -117,19 +101,38 @@ class NucleiModule(Module):
         if not os.Path(self.template_dir).exists():
             raise Exception("Invalid template directory")
 
-    def update_templates(self) -> None:
+    @classmethod
+    def update_templates(cls) -> None:
         """
         Update the nuclei templates to the latest version.
         """
-        if not os.path.exists(self.templates_dir):
-            os.makedirs(self.templates_dir)
+        logger.info("Updating nuclei templates...")
+        # if not os.path.exists(self.templates_dir):
+        #     os.makedirs(self.templates_dir)
 
-        cmd = ["nuclei", "-update-templates"]
-        self._execute_command(cmd, cwd=self.templates_dir)
+        cmd = [f"{cls.binary_name}", "-update-templates"]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        logger.info(result.stdout or result.stderr)
+        return cls._parse_version(result.stdout or result.stderr)
 
-    def update_nuclei(self) -> None:
+    @classmethod
+    def update_nuclei(cls) -> None:
         """
         Update the nuclei binary to the latest version.
         """
-        cmd = ["nuclei", "-update"]
-        self._execute_command(cmd)
+        logger.info("Updating nuclei binary...")
+
+        cmd = [f"{cls.binary_name}", "-update"]
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        logger.info(result.stdout or result.stderr)
+        return cls._parse_version(result.stdout or result.stderr)

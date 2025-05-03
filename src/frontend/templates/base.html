@@ -66,6 +66,10 @@
           <i class="fas fa-play-circle sidebar-icon"></i>
           <span class="sidebar-text">Launch Scan</span>
         </a> -->
+        <a href="{{ url_for('logout') }}" class="nav-link sidebar-item">
+          <i class="fas fa-sign-out-alt sidebar-icon"></i>
+          <span class="sidebar-text">Logout</span>
+        </a>
       </nav>
       <div class="sidebar-footer p-3 text-center text-muted small">
         Version: {{ project_version }}

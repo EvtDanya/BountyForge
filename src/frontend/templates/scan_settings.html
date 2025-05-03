@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1 class="mb-4">Settings</h1>
+<div id="notificationArea"></div>
 <form id="settingsForm" method="POST">
   <!-- Global Settings -->
   <div class="card mb-4 shadow-sm">
@@ -39,6 +40,55 @@
     </div>
   </div>
 
+  <!-- Nuclei Settings -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-dark text-white">
+      <h5><i class="fas fa-bullseye me-2"></i>Nuclei Settings</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label">Scan Mode:</label>
+        <div class="btn-group" role="group" aria-label="Nuclei Scan Mode">
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_default" value="default" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_default">Default</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_aggressive" value="aggressive" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_aggressive">Aggressive</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_full" value="full" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_full">Full</label>
+
+          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_recon" value="recon" autocomplete="off">
+          <label class="btn btn-outline-primary" for="nuclei_recon">Recon</label>
+
+          <button type="button" class="btn btn-outline-secondary"
+                  data-bs-toggle="popover"
+                  data-bs-trigger="hover focus"
+                  data-bs-placement="right"
+                  data-bs-content="Default: template subset. Aggressive: high rate. Full: all templates. Recon: JSON output.">
+            <i class="fas fa-question-circle"></i>
+          </button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="nuclei_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="nuclei_flags" name="nuclei_flags" value="">
+      </div>
+      <div class="mb-3">
+        <label for="nuclei_templates" class="form-label">Templates Dir:</label>
+        <input type="text" class="form-control" id="nuclei_templates" name="nuclei_templates" value="">
+      </div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-outline-primary" id="updateNucleiBtn">
+          <i class="fas fa-sync"></i> Update Nuclei
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="updateTemplatesBtn">
+          <i class="fas fa-folder-open"></i> Update Templates
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <!-- Nmap Settings -->
   <div class="card mb-4 shadow-sm">
     <div class="card-header bg-success text-white">
@@ -138,55 +188,6 @@
     </div>
   </div>
 
-  <!-- Nuclei Settings -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-header bg-dark text-white">
-      <h5><i class="fas fa-bullseye me-2"></i>Nuclei Settings</h5>
-    </div>
-    <div class="card-body">
-      <div class="mb-3">
-        <label class="form-label">Scan Mode:</label>
-        <div class="btn-group" role="group" aria-label="Nuclei Scan Mode">
-          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_default" value="default" autocomplete="off">
-          <label class="btn btn-outline-primary" for="nuclei_default">Default</label>
-
-          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_aggressive" value="aggressive" autocomplete="off">
-          <label class="btn btn-outline-primary" for="nuclei_aggressive">Aggressive</label>
-
-          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_full" value="full" autocomplete="off">
-          <label class="btn btn-outline-primary" for="nuclei_full">Full</label>
-
-          <input type="radio" class="btn-check" name="nuclei_mode" id="nuclei_recon" value="recon" autocomplete="off">
-          <label class="btn btn-outline-primary" for="nuclei_recon">Recon</label>
-
-          <button type="button" class="btn btn-outline-secondary"
-                  data-bs-toggle="popover"
-                  data-bs-trigger="hover focus"
-                  data-bs-placement="right"
-                  data-bs-content="Default: template subset. Aggressive: high rate. Full: all templates. Recon: JSON output.">
-            <i class="fas fa-question-circle"></i>
-          </button>
-        </div>
-      </div>
-      <div class="mb-3">
-        <label for="nuclei_flags" class="form-label">Additional Flags:</label>
-        <input type="text" class="form-control" id="nuclei_flags" name="nuclei_flags" value="">
-      </div>
-      <div class="mb-3">
-        <label for="nuclei_templates" class="form-label">Templates Dir:</label>
-        <input type="text" class="form-control" id="nuclei_templates" name="nuclei_templates" value="">
-      </div>
-      <div class="d-flex gap-2">
-        <button type="button" class="btn btn-outline-primary" id="updateNucleiBtn">
-          <i class="fas fa-sync"></i> Update Nuclei
-        </button>
-        <button type="button" class="btn btn-outline-primary" id="updateTemplatesBtn">
-          <i class="fas fa-folder-open"></i> Update Templates
-        </button>
-      </div>
-    </div>
-  </div>
-
   <button type="submit" class="btn btn-lg btn-success">
     <i class="fas fa-save me-2"></i>Save Settings
   </button>
@@ -199,8 +200,16 @@
   const BACKEND_UPDATE_TEMPLATES = "{{ api_update_templates_url }}";
   const token = "{{ session.jwt_token }}";
 
+  function showAlert(type, message) {
+    document.getElementById('notificationArea').innerHTML = `
+      <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>`;
+  }
+ 
   document.addEventListener("DOMContentLoaded", () => {
-    // 1) Load existing config
+    // Load existing config
     fetch(BACKEND_GET_CONFIG, {
       method: "GET",
       headers: { "Authorization": "Bearer " + token }
@@ -233,7 +242,7 @@
       document.getElementById("nuclei_templates").value = data.scanners.nuclei.templates_dir || "";
     });
 
-    // 2) Save settings
+    // Save settings
     document.getElementById("settingsForm").addEventListener("submit", e => {
       e.preventDefault();
       const payload = {
@@ -274,11 +283,13 @@
         body: JSON.stringify(payload)
       })
       .then(r => { if (!r.ok) throw new Error("Failed to save"); return r.json(); })
-      .then(() => alert("Settings saved!"))
-      .catch(err => alert("Error saving settings: " + err.message));
+      .then(() => showAlert('success', 'Settings saved!'))
+      .catch(
+        err => showAlert('danger', 'Error saving settings: ' + err.message)
+      );
     });
 
-    // 3) Update Nuclei
+    // Update Nuclei
     document.getElementById("updateNucleiBtn").addEventListener("click", async () => {
       const btn = document.getElementById("updateNucleiBtn");
       btn.disabled = true;
@@ -288,18 +299,24 @@
           method: "POST",
           headers: { "Authorization": "Bearer " + token }
         });
+        if (!res.ok) {
+          const errText = await res.text();
+          let msg = errText;
+          try { msg = JSON.parse(errText).error || errText } catch {}
+          throw new Error(msg);
+        }
         let j = await res.json();
-        alert(j.message || "Nuclei updated");
+        showAlert('success', j.message || 'Nuclei updated');
       } catch (e) {
         console.error(e);
-        alert("Error updating Nuclei");
+        showAlert('danger', 'Error updating Nuclei: ' + e)
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync"></i> Update Nuclei';
       }
     });
 
-    // 4) Update Templates
+    // Update Templates
     document.getElementById("updateTemplatesBtn").addEventListener("click", async () => {
       const btn = document.getElementById("updateTemplatesBtn");
       btn.disabled = true;
@@ -309,18 +326,24 @@
           method: "POST",
           headers: { "Authorization": "Bearer " + token }
         });
+        if (!res.ok) {
+          const errText = await res.text();
+          let msg = errText;
+          try { msg = JSON.parse(errText).error || errText } catch {}
+          throw new Error(msg);
+        }
         let j = await res.json();
-        alert(j.message || "Templates updated");
+        showAlert('success', j.message || 'Templates updated');
       } catch (e) {
         console.error(e);
-        alert("Error updating templates");
+        showAlert('danger', 'Error updating templates: ' + e)
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-folder-open"></i> Update Templates';
       }
     });
 
-    // 5) Initialize all popovers
+    // Initialize all popovers
     var popoverTriggerList = [].slice.call(
       document.querySelectorAll('[data-bs-toggle="popover"]')
     );

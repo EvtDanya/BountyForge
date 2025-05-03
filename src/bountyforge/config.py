@@ -64,7 +64,7 @@ class BackendBountyForge(BaseApp):
     threads: int = 1
     timeout: int = 120
     rate_limit: int = "20"
-    project_version: str = "0.0.9"
+    project_version: str = "0.0.10"
 
     def __post_init__(self):
         super().__post_init__()
@@ -129,7 +129,7 @@ class ScannerSettings(object):
 
 @dataclass
 class LoggingConfig(object):
-    level: int = logging.INFO
+    level: int = logging.DEBUG
     file_path: str | None = None
     syslog_enabled: bool = False
 

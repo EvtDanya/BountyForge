@@ -1,6 +1,6 @@
 import logging
 from typing import List, Union
-from bountyforge.core.module_base import Module, ScanType, TargetType
+from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +11,8 @@ class SubfinderModule(Module):
 
     The scan_type is fixed to RECON by default
     """
+    binary_name = "subfinder"
+
     def __init__(
         self,
         target: Union[str, List[str]],
@@ -18,7 +20,6 @@ class SubfinderModule(Module):
         additional_flags: List[str] = None
     ) -> None:
         super().__init__(ScanType.RECON, target, target_type, additional_flags)
-        self.binary_name = "subfinder"
 
     def _build_command(self, target_str: str) -> List[str]:
         super()._build_command(target_str)

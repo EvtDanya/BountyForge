@@ -129,7 +129,9 @@ def scan_settings():
     return render_template(
         "scan_settings.html",
         api_get_config_url=f"{BACKEND_URL}/api/get_config",
-        api_save_config_url=f"{BACKEND_URL}/api/save_config"
+        api_save_config_url=f"{BACKEND_URL}/api/save_config",
+        api_update_nuclei_url=f"{BACKEND_URL}/api/update_nuclei",
+        api_update_templates_url=f"{BACKEND_URL}/api/update_templates",
     )
 
 

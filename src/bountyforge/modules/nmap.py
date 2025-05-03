@@ -1,6 +1,7 @@
 import logging
+import re
 from typing import List, Union
-from bountyforge.core.module_base import Module, ScanType, TargetType
+from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,8 @@ class NmapModule(Module):
 
     This module performs an Nmap scan
     """
+    binary_name = "nmap"
+
     def __init__(
         self,
         scan_type: ScanType,
@@ -19,7 +22,6 @@ class NmapModule(Module):
         additional_flags: List[str] = None
     ) -> None:
         super().__init__(scan_type, target, target_type, additional_flags)
-        self.binary_name = "nmap"
 
     def _build_command(self, target_str: str) -> List[str]:
         command = super()._build_base_command()
@@ -49,3 +51,11 @@ class NmapModule(Module):
             command.extend(self.additional_flags)
 
         return command
+
+    @classmethod
+    def _parse_version(cls, output: str) -> str:
+        """
+        Парсинг версии из вывода
+        """
+        match = re.search(r'Nmap version\s+(\d+\.\d+(?:\.\d+)?)', output)
+        return match.group(1) if match else "unknown"

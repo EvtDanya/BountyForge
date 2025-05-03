@@ -1,6 +1,6 @@
 import logging
 from typing import List, Union
-from bountyforge.core.module_base import Module, ScanType, TargetType
+from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +9,8 @@ class SubdomainBruteforceModule(Module):
     """
     Module for brute forcing subdomains using a subbrute
     """
+    binary_name = "subbrute"
+
     def __init__(
         self,
         target: Union[str, List[str]],

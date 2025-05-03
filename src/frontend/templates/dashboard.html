@@ -18,7 +18,7 @@
   <div class="row">
     <!-- System Status card -->
     <div class="col-lg-4 col-md-6 mb-3">
-      <div class="card text-white bg-primary h-100 shadow-sm">
+      <div class="card text-white bg-dark h-100 shadow-sm">
         <div class="card-body d-flex flex-column">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="card-title mb-0"><i class="fas fa-signal me-2"></i>System Status</h5>
@@ -63,9 +63,6 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <!-- Error alert for scan form -->
-            <div id="scanFormAlert"></div>
-
             <!-- Target Type -->
             <div class="mb-3">
               <label for="target_type" class="form-label">Target Type:</label>
@@ -114,7 +111,7 @@ dev.internal.local"></textarea>
                   rows="3"
                   placeholder="X-API-Key: 12345
 Authorization: Bearer token"></textarea>
-              <small class="text-muted">По одному заголовку на строку в формате "Header: Value"</small>
+              <small class="text-muted">One header per line in format `Header: Value`</small>
             </div>
 
             <!-- Tool selection -->
@@ -234,7 +231,7 @@ Authorization: Bearer token"></textarea>
                 : '<i class="fas fa-times-circle text-danger me-2"></i>';
             
             const versionText = info.version 
-                ? `<span class="text-light ms-2">v${info.version}</span>` 
+                ? `<span class="text-light ms-2">v ${info.version}</span>` 
                 : '<span class="text-danger">not available</span>';
             
             li.innerHTML = `
@@ -269,8 +266,7 @@ Authorization: Bearer token"></textarea>
       const toolSubfinder     = document.getElementById('tool_subfinder');
       // const nmapSettings      = document.getElementById('nmap_settings');
       // const subfinderSettings = document.getElementById('subfinder_settings');
-      const scanFormAlert     = document.getElementById('scanFormAlert');
- 
+
       targetTypeEl.addEventListener('change', () => {
         // singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
         multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
@@ -286,7 +282,6 @@ Authorization: Bearer token"></textarea>
 
       scanForm.addEventListener('submit', async e => {
         e.preventDefault();
-        scanFormAlert.innerHTML = '';  // clear previous errors
 
         let targets;
         let tt = targetTypeEl.value;
@@ -378,12 +373,28 @@ Authorization: Bearer token"></textarea>
           }
 
           const result = await res.json();
-          // scanResult.innerHTML = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+          const { message, job_id, stream_url, valid_targets, skipped_targets } = result;
           bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
           showAlert('success', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+
+          const evtSource = new EventSource(stream_url, {
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+            evtSource.onmessage = e => {
+              const evt = JSON.parse(e.data);
+              // evt может быть {tool, target, output,...} или {event:"finished"}
+              console.log("SSE event:", evt);
+              // тут можно динамически добавлять строки в таблицу прогресса
+              if (evt.event === "finished") {
+                showAlert("success", "Scan finished");
+                evtSource.close();
+              }
+            };
         } catch (err) {
           console.error('Scan error:', err);
-          scanFormAlert.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+          showAlert('danger', `${err.message}`);
         }
       });
 

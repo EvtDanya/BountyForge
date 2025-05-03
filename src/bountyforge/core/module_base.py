@@ -8,7 +8,6 @@ import subprocess
 import logging
 import enum
 import os
-import abc
 import shutil
 import re
 
@@ -295,20 +294,20 @@ class Module():
             return {"error": str(e), "success": False}
 
     @classmethod
-    @abc.abstractmethod
-    def check_availability(self) -> bool:
+    def check_availability(cls) -> bool:
         """
         Check if the module is available for use
 
         :return: True if the module is available, False otherwise
         """
+        version = cls.get_version()
+        return {
+            "available": version is not None,
+            "version": version
+        }
 
-        raise NotImplementedError(
-            "Subclasses must implement the check_availability method"
-        )
-
-    @staticmethod
-    def _parse_version(output: str) -> str:
+    @classmethod
+    def _parse_version(cls, output: str) -> str:
         """
         Парсинг версии из вывода
         """

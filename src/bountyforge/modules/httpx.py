@@ -1,6 +1,6 @@
 import logging
 from typing import List, Union
-from bountyforge.core.module_base import Module, ScanType, TargetType
+from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +13,8 @@ class HttpxModule(Module):
       - "recon": Detailed output (e.g., title, status code, CDN info)
       - "live": Minimal output (e.g., status code only)
     """
+    binary_name = "httpx"
+
     def __init__(
         self,
         mode: str = "recon",
@@ -23,7 +25,6 @@ class HttpxModule(Module):
         # For httpx, we use RECON as the scan type by default
         super().__init__(ScanType.RECON, target, target_type, additional_flags)
         self.mode = mode.lower()
-        self.binary_name = "httpx"
 
     def _build_command(self, target_str: str) -> List[str]:
         """
@@ -52,9 +53,9 @@ class HttpxModule(Module):
             case TargetType.FILE:
                 command.extend(["-l", target_str])
             case TargetType.SINGLE | TargetType.MULTIPLE:
-                command.append(["-u", target_str])
+                command.extend(["-u", target_str])
             case _:
-                command.append(["-u", target_str])
+                command.extend(["-u", target_str])
 
         if self.additional_flags:
             command.extend(self.additional_flags)

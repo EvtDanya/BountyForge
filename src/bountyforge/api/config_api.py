@@ -1,17 +1,20 @@
 import logging
 import shutil
 import datetime
+import redis
 import validators
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from bountyforge.config import settings, Config
 from flask_jwt_extended import (
   JWTManager, create_access_token, jwt_required
 )
-from bountyforge.modules import (
-    HttpxModule, NmapModule,
-    NucleiModule, SubdomainBruteforceModule, SubfinderModule
-)
+# from bountyforge.modules import (
+#     HttpxModule, NmapModule,
+#     NucleiModule, SubdomainBruteforceModule, SubfinderModule
+# )
+from bountyforge.core import module_manager
+from bountyforge.core import run_scan_task
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +25,8 @@ jwt = JWTManager()
 users = {
     settings.frontend.auth_user: generate_password_hash(settings.frontend.auth_pass)  # noqa
 }
+
+redis_client = redis.Redis.from_url(settings.backend.celery_broker_url)
 
 
 def verify_password(username, password):
@@ -181,41 +186,69 @@ def start_scan():
             f"Some targets are invalid and will be skipped: {invalid}"
         )
 
+    #! TODO: exclude validation + usage
     # Здесь запускается фоновая задача, передаём только valid
     # task = run_scan_task.delay({ **data, "target": valid })
 
+    job = run_scan_task.delay(data)
+    stream_url = url_for(
+        "config_api.scan_stream",
+        job_id=job.id,
+        _external=True
+    )
+
     return jsonify({
         "message": "Scan job queued",
+        "job_id": job.id,
+        "stream_url": stream_url,
         "valid_targets": valid,
         "skipped_targets": invalid
     }), 202
 
 
+@config_api.route("/api/scan/stream/<job_id>")
+# @jwt_required()
+def scan_stream(job_id):
+    def event_stream():
+        pubsub = redis_client.pubsub()
+        pubsub.subscribe(f"scan:{job_id}")
+        for msg in pubsub.listen():
+            if msg["type"] != "message":
+                continue
+            data = msg["data"]
+            if isinstance(data, bytes):
+                data = data.decode()
+            yield f"data: {data}\n\n"
+    return Response(event_stream(), mimetype="text/event-stream")
+
+
 @config_api.route('/api/check_modules', methods=['GET'])
 @jwt_required()
 def check_modules():
-    modules = {
-        "nmap": NmapModule,
-        "nuclei": NucleiModule,
-        "httpx": HttpxModule,
-        "subfinder": SubfinderModule,
-        "subdomain_bruteforce": SubdomainBruteforceModule
-    }
+    statuses = module_manager.check_availability()
+    print(module_manager.list_modules())
+    # modules = {
+    #     "nmap": NmapModule,
+    #     "nuclei": NucleiModule,
+    #     "httpx": HttpxModule,
+    #     "subfinder": SubfinderModule,
+    #     "subdomain_bruteforce": SubdomainBruteforceModule
+    # }
 
-    statuses = {}
-    for name, module_cls in modules.items():
-        try:
-            status = module_cls.check_availability()
-            statuses[name] = {
-                "available": status["available"],
-                "version": status["version"]
-            }
-        except Exception as e:
-            logger.error(f"Check failed for {name}: {str(e)}")
-            statuses[name] = {
-                "available": False,
-                "version": None
-            }
+    # statuses = {}
+    # for name, module_cls in modules.items():
+    #     try:
+    #         status = module_cls.check_availability()
+    #         statuses[name] = {
+    #             "available": status["available"],
+    #             "version": status["version"]
+    #         }
+    #     except Exception as e:
+    #         logger.error(f"Check failed for {name}: {str(e)}")
+    #         statuses[name] = {
+    #             "available": False,
+    #             "version": None
+    #         }
 
     return jsonify(statuses), 200
 
@@ -249,3 +282,25 @@ def save_hosts():
     except Exception as ex:
         logger.exception("Error writing /etc/hosts")
         return jsonify({"error": str(ex)}), 500
+
+
+@config_api.route('/api/update_nuclei', methods=['POST'])
+@jwt_required()
+def update_nuclei():
+    try:
+        module = module_manager.get_module("nuclei")  # NucleiModule
+        module.update_nuclei()
+        return jsonify({"message": "Nuclei updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@config_api.route('/api/update_templates', methods=['POST'])
+@jwt_required()
+def update_templates():
+    try:
+        module = module_manager.get_module("nuclei")  # NucleiModule
+        module.update_templates()
+        return jsonify({"message": "Templates updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
