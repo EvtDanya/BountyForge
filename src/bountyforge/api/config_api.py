@@ -194,7 +194,7 @@ def start_scan():
     # Здесь запускается фоновая задача, передаём только valid
     # task = run_scan_task.delay({ **data, "target": valid })
 
-    job = run_scan_task.delay(data)
+    job = run_scan_task.delay({**data, "target": valid})
     mongo = MongoClient(settings.backend.mongo_url)
     db = mongo.get_default_database()
     db.scan_jobs.insert_one({
@@ -234,15 +234,30 @@ def get_scan(job_id):
     if not job:
         return jsonify({"error": "Scan not found"}), 404
 
-    # можно расширить: брать свежий статус из redis или по сохранённым событиям
     return jsonify({
-        **job,
-        "stream_url": url_for(
-            "config_api.scan_stream",
-            job_id=job_id,
-            _external=True
-        )
+        **job
+        # "stream_url": url_for(
+        #     "config_api.scan_stream",
+        #     job_id=job_id
+        # )
     }), 200
+
+
+@config_api.route('/api/scan_results/<job_id>', methods=['GET'])
+@jwt_required()
+def get_scan_results(job_id):
+    """
+    Возвращает все записи из scan_results с этим job_id
+    """
+    client = MongoClient(settings.backend.mongo_url)
+    db = client.get_default_database()
+    cursor = db.scan_results.find(
+        {"job_id": job_id},
+        sort=[("timestamp", 1)],  # по времени, от старых к новым
+        projection={"_id": 0}
+    )
+    results = list(cursor)
+    return jsonify(results), 200
 
 
 @config_api.route("/api/scan/stream/<job_id>")
@@ -258,9 +273,7 @@ def scan_stream(job_id):
                 if msg['type'] != 'message':
                     continue
                 data = msg['data'].decode('utf-8')
-                # каждое сообщение отсылаем клиенту
                 yield f"data: {data}\n\n"
-                # если «finished» — выходим
                 obj = json.loads(data)
                 if obj.get("event") == "finished":
                     break
@@ -276,7 +289,9 @@ def scan_stream(job_id):
 @config_api.route('/api/scan/last', methods=['GET'])
 @jwt_required()
 def get_last_scan():
-    """Return metadata for the most recent scan of the current user."""
+    """
+    Return metadata for the most recent scan of the current user
+    """
     db = MongoClient(settings.backend.mongo_url).get_default_database()
     user = get_jwt_identity()
     job = db.scan_jobs.find_one(
@@ -286,7 +301,6 @@ def get_last_scan():
     if not job:
         return jsonify({}), 200
 
-    # посчитаем сколько результатов сгенерировано этим джобом
     cnt = db.scan_results.count_documents({"job_id": job["job_id"]})
     return jsonify({
         "job_id":      job["job_id"],
@@ -300,18 +314,19 @@ def get_last_scan():
 @config_api.route('/api/scan/stats', methods=['GET'])
 @jwt_required()
 def get_stats():
-    """Return scan statistics for today for the current user."""
+    """
+    Return scan statistics for the current user for the last 7 days
+    """
     db = MongoClient(settings.backend.mongo_url).get_default_database()
     user = get_jwt_identity()
     now = datetime.datetime.now()
     week_ago = now - datetime.timedelta(days=7)
 
-    # количество заданий
     scans_today = db.scan_jobs.count_documents({
         "initiator": user,
         "timestamp": {"$gte": week_ago}
     })
-    # суммарное число целей
+
     total_targets = 0
     for job in db.scan_jobs.find({
         "initiator": user,
@@ -329,7 +344,6 @@ def get_stats():
 @jwt_required()
 def check_modules():
     statuses = module_manager.check_availability()
-    print(module_manager.list_modules())
     # modules = {
     #     "nmap": NmapModule,
     #     "nuclei": NucleiModule,

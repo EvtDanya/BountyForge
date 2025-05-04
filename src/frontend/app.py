@@ -184,13 +184,19 @@ def scan_details(scan_id):
         return redirect(url_for("scan_history"))
     job = resp.json()
 
+    # stream_url = f"{BACKEND_URL}/{job.get('stream_url')}"
+    # print(job)
+    # print(stream_url)
+
     return render_template(
         'scan_details.html',
         scan_id=scan_id,
         status=job.get("status", "unknown"),
         targets=job.get("targets", []),
         initiated=job.get("timestamp"),
-        stream_url=job["stream_url"]
+        api_scan_meta_url=f"{BACKEND_URL}/api/scan/{scan_id}",
+        api_scan_results_url=f"{BACKEND_URL}/api/scan_results/{scan_id}",
+        stream_url=f"{BACKEND_URL}/api/scan/stream/{scan_id}",
     )
 
 

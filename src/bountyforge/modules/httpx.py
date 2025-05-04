@@ -57,9 +57,9 @@ class HttpxModule(Module):
                 command.extend(["-title", "-status-code", "-cdn"])
             case ScanType.LIVE:
                 # In live scan_type, output is kept minimal
-                command.extend(["-status-code"])
+                command.append(["-status-code"])
             case _:
-                command.extend(["-status-code"])
+                command.append(["-status-code"])
 
         match self.target_type:
             case TargetType.FILE:
@@ -70,6 +70,6 @@ class HttpxModule(Module):
                 command.extend(["-u", target_str])
 
         if self.additional_flags:
-            command.extend(self.additional_flags)
+            command.append(self.additional_flags)
 
         return command

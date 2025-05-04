@@ -40,7 +40,7 @@ class NmapModule(Module):
     def _build_command(self, target_str: str) -> List[str]:
         command = super()._build_base_command()
 
-        command += ["-Pn"]
+        command += ["-Pn", "-p", "8080,53,135,445"]
 
         match self.scan_type:
             case ScanType.AGGRESSIVE:
@@ -57,13 +57,14 @@ class NmapModule(Module):
             case TargetType.FILE:
                 command.extend(["-iL", target_str])
             case TargetType.SINGLE | TargetType.MULTIPLE:
-                command.extend(target_str)
+                command.append(target_str)
             case _:
-                command.extend(target_str)
+                command.append(target_str)
 
         if self.additional_flags:
-            command.extend(self.additional_flags)
+            command.append(self.additional_flags)
 
+        logger.info(f"Command: {command}")
         return command
 
     @classmethod

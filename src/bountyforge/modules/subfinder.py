@@ -37,9 +37,9 @@ class SubfinderModule(Module):
         )
 
     def _build_command(self, target_str: str) -> List[str]:
-        super()._build_command(target_str)
+        command = super()._build_base_command()
 
-        command = ["subfinder", "-silent", "-all"]
+        command += ["-silent", "-all"]
 
         match self.target_type:
             case TargetType.FILE:
@@ -50,8 +50,9 @@ class SubfinderModule(Module):
                 command.extend(["-d", target_str])
 
         if self.additional_flags:
-            command.extend(self.additional_flags)
+            command.append(self.additional_flags)
 
+        logger.info(f"Command: {command}")
         return command
 
 # class ReconAbstractModule(abc.ABC):

@@ -91,6 +91,8 @@ class Module():
                 raise ValueError(
                     "Invalid target type for SINGLE"
                 )
+            if not self.target:
+                raise ValueError("No valid targets provided")
             return self.target.strip()
         elif self.target_type == TargetType.MULTIPLE:
             if not isinstance(self.target, list):
@@ -100,6 +102,12 @@ class Module():
                 raise ValueError(
                     "Invalid target type for MULTIPLE"
                 )
+            if not self.target:
+                raise ValueError("No valid targets provided")
+            # print(f'len {len(self.target)}')
+            # if len(self.target) == 1:
+            #     print(str(t).strip() for t in self.target)
+            #     return [str(t).strip() for t in self.target]
             return ",".join(map(str, self.target)).strip()
         elif self.target_type == TargetType.FILE:
             if (
