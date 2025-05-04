@@ -1,5 +1,6 @@
 import logging
 from typing import List, Union
+from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
@@ -17,14 +18,25 @@ class HttpxModule(Module):
 
     def __init__(
         self,
-        mode: str = "recon",
-        target: Union[str, List[str]] = None,
-        target_type: TargetType = TargetType.SINGLE,
-        additional_flags: List[str] = None
+        target: Union[str, List[str]],
+        target_type: TargetType,
+        scan_type: ScanType = ScanType.RECON,
+        additional_flags: List[str] = None,
+        **kwargs
     ) -> None:
-        # For httpx, we use RECON as the scan type by default
-        super().__init__(ScanType.RECON, target, target_type, additional_flags)
-        self.mode = mode.lower()
+        # check for unexpected args
+        # unexpected_args = set(kwargs) - {f.name for f in fields(self)}
+        # if unexpected_args:
+        #     logger.warning(
+        #         f"Unexpected arguments: {', '.join(unexpected_args)}"
+        #     )
+
+        super().__init__(
+            scan_type=scan_type,
+            target=target,
+            target_type=target_type,
+            additional_flags=additional_flags
+        )
 
     def _build_command(self, target_str: str) -> List[str]:
         """
@@ -38,7 +50,7 @@ class HttpxModule(Module):
 
         command += ["-silent"]
 
-        match self.mode:
+        match self.scan_type:
             case ScanType.RECON:
                 # In reconnaissance scan_type, show title,
                 # status code and CDN information

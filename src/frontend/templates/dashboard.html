@@ -19,7 +19,7 @@
     <!-- System Status card -->
     <div class="col-lg-4 col-md-6 mb-3">
       <div class="card text-white bg-dark h-100 shadow-sm">
-        <div class="card-body d-flex flex-column">
+        <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h5 class="card-title mb-0"><i class="fas fa-signal me-2"></i>System Status</h5>
             <button id="checkModulesBtn" class="btn btn-light btn-sm">
@@ -27,27 +27,46 @@
             </button>
           </div>
           <small class="text-light mb-3">Click to verify that all scan modules are up.</small>
-          <div id="moduleStatus" class="mt-auto"></div>
+          <div id="moduleStatus"></div>
         </div>
       </div>
     </div>
 
     <!-- Last Scan card -->
-    <div class="col-lg-4 col-md-6 mb-3">
-      <div class="card text-white bg-success h-100 shadow-sm">
+    <!-- <div class="col-lg-4 col-md-6 mb-3">
+      <div class="card text-white bg-secondary h-100 shadow-sm">
         <div class="card-body">
-          <h5 class="card-title"><i class="fas fa-rocket me-2"></i>Last Scan</h5>
-          <p class="card-text">example.com – Nmap scan finished successfully.</p>
+          <h5 class="card-title" id="cardTitle"><i class="fas fa-rocket me-2"></i>Last Scan</h5>
+          <p id="lastScan" class="card-text">Loading…</p> 
         </div>
       </div>
-    </div>
+    </div> -->
+      <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card text-white bg-secondary h-100 shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h5 class="card-title mb-0">
+                    <i class="fas fa-rocket me-2"></i>Last Scan
+                  </h5>
+                  <a id="viewLastScanBtn" href="#" class="btn btn-light btn-sm">
+                    <i class="fas fa-arrow-right me-1"></i>View Details
+                  </a>
+                </div>
+                <p id="lastScan" class="card-text">Loading…</p>
+              </div>
+            </div>
+          </div>
 
     <!-- Statistics card -->
     <div class="col-lg-4 col-md-6 mb-3">
       <div class="card text-white bg-warning h-100 shadow-sm">
         <div class="card-body">
-          <h5 class="card-title"><i class="fas fa-chart-line me-2"></i>Statistics</h5>
-          <p class="card-text">7 scans conducted today across 20 targets.</p>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title mb-0">
+              <i class="fas fa-chart-line me-2"></i>Statistics
+            </h5>
+          </div>
+          <p id="stats" class="card-text">Loading…</p>
         </div>
       </div>
     </div>
@@ -63,6 +82,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
+            <div id="scanFormAlert" class="alert alert-danger d-none mb-3"></div>
             <!-- Target Type -->
             <div class="mb-3">
               <label for="target_type" class="form-label">Target Type:</label>
@@ -195,6 +215,8 @@ Authorization: Bearer token"></textarea>
       const CHECK_URL = "{{ api_check_modules_url }}";
       const HOSTS_URL = "{{ api_hosts_url }}";
       const SCAN_URL  = "{{ api_start_scan_url }}";
+      const LAST_SCAN_URL = "{{ api_last_scan_url }}";
+      const STATS_URL = "{{ api_stats_url }}";
       const token     = "{{ session.jwt_token }}";
 
       // Helper to show Bootstrap alerts
@@ -206,6 +228,52 @@ Authorization: Bearer token"></textarea>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>`;
       }
+
+      // Load Last Scan
+      const scanDetailsBase = "{{ url_for('scan_details', scan_id='') }}";
+      const viewLastBtn = document.getElementById('viewLastScanBtn');
+      fetch(LAST_SCAN_URL, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(r => r.json())
+      .then(d => {
+        const el = document.getElementById('lastScan');
+        if (!d.job_id) {
+          el.textContent = 'No scans yet';
+          viewLastBtn.classList.add('d-none');
+          return;
+        }
+        const when = new Date(d.timestamp).toLocaleString();
+        el.innerHTML = `
+          <strong>${d.targets.join(', ')}</strong><br>
+          Status: ${d.status}<br>
+          Results: ${d.result_count}<br>
+          <small class="text-light">${when}</small>
+        `;
+        // Проставляем ссылку на детали
+        viewLastBtn.href = scanDetailsBase + d.job_id;
+      })
+      .catch(()=> {
+        document.getElementById('lastScan').textContent = 'Error loading';
+        viewLastBtn.classList.add('d-none');
+      });
+
+      // Load Statistics
+      fetch(STATS_URL, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.scans_last_7_days != null) {
+          document.getElementById('stats').textContent =
+          `${d.scans_last_7_days} scans in last 7 days across ${d.targets_last_7_days} targets.`;
+        } else {
+          document.getElementById('stats').textContent = 'No data for last week';
+        }
+      })
+      .catch(()=> {
+        document.getElementById('stats').textContent = 'Error loading stats';
+      });
 
       // Check Modules logic
       const btnCheck   = document.getElementById('checkModulesBtn');
@@ -336,6 +404,7 @@ Authorization: Bearer token"></textarea>
           // Tools & params
           const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
                              .map(chk => chk.value);
+          if (!tools.length) throw new Error('Please select at least one tool');
           // const params = {};
           // if (tools.includes('nmap')) {
           //   params.nmap = {
@@ -386,7 +455,6 @@ Authorization: Bearer token"></textarea>
                 showAlert("info", "Scan started…");
                 break;
               case "result":
-                // например, добавляем строку с evt.tool, evt.result или evt.error
                 break;
               case "error":
                 showAlert("danger", `${evt.tool}: ${evt.msg}`);

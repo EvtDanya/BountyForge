@@ -1,6 +1,7 @@
 import logging
 import re
 from typing import List, Union
+from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
@@ -16,12 +17,25 @@ class NmapModule(Module):
 
     def __init__(
         self,
-        scan_type: ScanType,
         target: Union[str, List[str]],
         target_type: TargetType = TargetType.SINGLE,
-        additional_flags: List[str] = None
+        scan_type: ScanType = ScanType.DEFAULT,
+        additional_flags: List[str] = None,
+        **kwargs
     ) -> None:
-        super().__init__(scan_type, target, target_type, additional_flags)
+        # check for unexpected args
+        # unexpected_args = set(kwargs) - {f.name for f in fields(self)}
+        # if unexpected_args:
+        #     logger.warning(
+        #         f"Unexpected arguments: {', '.join(unexpected_args)}"
+        #     )
+
+        super().__init__(
+            scan_type=scan_type,
+            target=target,
+            target_type=target_type,
+            additional_flags=additional_flags
+        )
 
     def _build_command(self, target_str: str) -> List[str]:
         command = super()._build_base_command()
@@ -43,9 +57,9 @@ class NmapModule(Module):
             case TargetType.FILE:
                 command.extend(["-iL", target_str])
             case TargetType.SINGLE | TargetType.MULTIPLE:
-                command.append(target_str)
+                command.extend(target_str)
             case _:
-                command.append(target_str)
+                command.extend(target_str)
 
         if self.additional_flags:
             command.extend(self.additional_flags)

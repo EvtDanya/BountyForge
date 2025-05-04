@@ -1,5 +1,6 @@
 import logging
 from typing import List, Union
+from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
@@ -17,9 +18,23 @@ class SubfinderModule(Module):
         self,
         target: Union[str, List[str]],
         target_type: TargetType = TargetType.SINGLE,
-        additional_flags: List[str] = None
+        scan_type: ScanType = ScanType.RECON,
+        additional_flags: List[str] = None,
+        **kwargs
     ) -> None:
-        super().__init__(ScanType.RECON, target, target_type, additional_flags)
+        # check for unexpected args
+        # unexpected_args = set(kwargs) - {f.name for f in fields(self)}
+        # if unexpected_args:
+        #     logger.warning(
+        #         f"Unexpected arguments: {', '.join(unexpected_args)}"
+        #     )
+
+        super().__init__(
+            scan_type=scan_type,
+            target=target,
+            target_type=target_type,
+            additional_flags=additional_flags
+        )
 
     def _build_command(self, target_str: str) -> List[str]:
         super()._build_command(target_str)
@@ -30,9 +45,9 @@ class SubfinderModule(Module):
             case TargetType.FILE:
                 command.extend(["-dL", target_str])
             case TargetType.SINGLE | TargetType.MULTIPLE:
-                command.append(["-d", target_str])
+                command.extend(["-d", target_str])
             case _:
-                command.append(["-d", target_str])
+                command.extend(["-d", target_str])
 
         if self.additional_flags:
             command.extend(self.additional_flags)

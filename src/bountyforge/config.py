@@ -64,7 +64,7 @@ class BackendBountyForge(BaseApp):
     threads: int = 1
     timeout: int = 120
     rate_limit: int = "20"
-    project_version: str = "0.0.10"
+    project_version: str = "0.1.2"
 
     def __post_init__(self):
         super().__post_init__()

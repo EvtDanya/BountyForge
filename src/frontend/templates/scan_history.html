@@ -5,19 +5,27 @@
     <thead>
       <tr>
         <th>Target</th>
-        <th>Tool</th>
-        <th>Result</th>
+        <th>Target(-s)</th>
         <th>Timestamp</th>
+        <th>Status</th>
       </tr>
     </thead>
     <tbody>
-      {% for record in history %}
+      <!-- {% for record in history %}
       <tr>
         <td>{{ record.target }}</td>
         <td>{{ record.tool }}</td>
         <td>{{ record.result }}</td>
         <td>{{ record.timestamp }}</td>
       </tr>
+      {% endfor %} -->
+      {% for job in history %}
+        <tr>
+          <td><a href="{{ url_for('scan_details', scan_id=job.job_id) }}">{{ job.job_id }}</a></td>
+          <td>{{ job.targets|join(', ') }}</td>
+          <td>{{ job.timestamp }}</td>
+          <td><span class="badge bg-{{ 'success' if job.status=='finished' else 'secondary' }}">{{ job.status }}</span></td>
+        </tr>
       {% endfor %}
     </tbody>
   </table>

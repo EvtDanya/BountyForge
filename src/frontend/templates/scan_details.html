@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>Scan ID: {{ scan_id }}</h2>
+                <div class="badge bg-{{ 'success' if status == 'completed' else 'warning' }} fs-6">
+                    {{ status|capitalize }}
+                </div>
+            </div>
+            <div class="progress mt-3" style="height: 4px;">
+                <div class="progress-bar" role="progressbar" :style="{width: progress + '%'}" 
+                     :class="{'bg-success': progress === 100, 'bg-info': progress < 100}"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-lg-2 g-4">
+        <!-- Статистика -->
+        <div class="col">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-chart-pie me-2"></i>Statistics
+                </div>
+                <div class="card-body">
+                    <canvas id="statsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Результаты -->
+        <div class="col">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-list-ul me-2"></i>Scan Results
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="resultsList">
+                        <!-- Динамически заполняемые результаты -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- График временной линии -->
+    <div class="row mt-4">
+        <div class="col">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-chart-line me-2"></i>Timeline
+                </div>
+                <div class="card-body">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const evtSource = new EventSource("{{ stream_url }}");
+    evtSource.onmessage = e => {
+      const msg = JSON.parse(e.data);
+      if (msg.event === "progress") {
+        // обновляем прогресс-бар…
+      }
+      if (msg.event === "result") {
+        // добавляем строку в список результатов…
+      }
+      if (msg.event === "finished") {
+        // меняем статус на «Completed» и закрываем connection
+        evtSource.close();
+      }
+    };
+  </script>
+{% endblock %}

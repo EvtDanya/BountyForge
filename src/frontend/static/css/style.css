@@ -125,3 +125,32 @@ html, body, #wrapper {
 .sidebar-footer {
   margin-top: auto;
 }
+
+
+/* Анимация прогресс-бара */
+.progress-bar {
+  transition: width 0.5s ease-in-out;
+}
+
+/* Стили карточек */
+.scan-card {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.result-item {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.result-item:hover {
+  background: #f8f9fa;
+}
+
+/* Иконки статусов */
+.status-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 0.5rem;
+}

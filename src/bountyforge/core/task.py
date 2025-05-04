@@ -54,6 +54,13 @@ def run_scan_task(self, request: Dict[str, Any]):
         init_kwargs: Dict[str, Any] = {
             "target": targets,
             "target_type": TargetType(request.get("target_type", "multiple")),
+            "scan_type": ScanType(
+                params.get(tool, {}).get(
+                    "scan_type",
+                    settings.scanners.__getattribute__(
+                        tool).get("scan_type", "default")
+                )
+            )
         }
         if slot := params.get(tool, {}).get("scan_type"):
             init_kwargs["scan_type"] = ScanType(slot)
@@ -85,7 +92,7 @@ def run_scan_task(self, request: Dict[str, Any]):
 
     # сохраняем все результаты в Mongo
     if results:
-        logger.info(results)
+        logger.info(f'results: {results}')
         db.scan_results.insert_many(results)
 
     # завершающее сообщение

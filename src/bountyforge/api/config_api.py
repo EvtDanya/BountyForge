@@ -10,8 +10,9 @@ from flask import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from bountyforge.config import settings, Config
 from flask_jwt_extended import (
-  JWTManager, create_access_token, jwt_required
+  JWTManager, create_access_token, jwt_required, get_jwt_identity
 )
+from pymongo import MongoClient
 # from bountyforge.modules import (
 #     HttpxModule, NmapModule,
 #     NucleiModule, SubdomainBruteforceModule, SubfinderModule
@@ -163,8 +164,7 @@ def start_scan():
     Endpoint for starting a scan
     """
     data = request.get_json() or {}
-    print(data)
-    headers = data.get('headers', {})
+    # headers = data.get('headers', {})
     logger.info(f"Received scan request: {data}")
 
     raw = data.get("target")
@@ -195,6 +195,17 @@ def start_scan():
     # task = run_scan_task.delay({ **data, "target": valid })
 
     job = run_scan_task.delay(data)
+    mongo = MongoClient(settings.backend.mongo_url)
+    db = mongo.get_default_database()
+    db.scan_jobs.insert_one({
+        "job_id": job.id,
+        "targets": valid,
+        "exclude": invalid,
+        "initiator": get_jwt_identity(),
+        "timestamp": datetime.datetime.now(),
+        "status": "queued"
+    })
+
     stream_url = url_for(
         "config_api.scan_stream",
         job_id=job.id,
@@ -209,6 +220,29 @@ def start_scan():
         "valid_targets": valid,
         "skipped_targets": invalid
     }), 202
+
+
+@config_api.route('/api/scan/<job_id>', methods=['GET'])
+@jwt_required()
+def get_scan(job_id):
+    """
+    Вернёт мета-данные по скану: статус, targets, инициатор и т.п.
+    """
+    mongo = MongoClient(settings.backend.mongo_url)
+    db = mongo.get_default_database()
+    job = db.scan_jobs.find_one({"job_id": job_id}, {"_id": 0})
+    if not job:
+        return jsonify({"error": "Scan not found"}), 404
+
+    # можно расширить: брать свежий статус из redis или по сохранённым событиям
+    return jsonify({
+        **job,
+        "stream_url": url_for(
+            "config_api.scan_stream",
+            job_id=job_id,
+            _external=True
+        )
+    }), 200
 
 
 @config_api.route("/api/scan/stream/<job_id>")
@@ -237,6 +271,58 @@ def scan_stream(job_id):
         stream_with_context(event_stream()),
         mimetype='text/event-stream'
     )
+
+
+@config_api.route('/api/scan/last', methods=['GET'])
+@jwt_required()
+def get_last_scan():
+    """Return metadata for the most recent scan of the current user."""
+    db = MongoClient(settings.backend.mongo_url).get_default_database()
+    user = get_jwt_identity()
+    job = db.scan_jobs.find_one(
+        {"initiator": user},
+        sort=[("timestamp", -1)]
+    )
+    if not job:
+        return jsonify({}), 200
+
+    # посчитаем сколько результатов сгенерировано этим джобом
+    cnt = db.scan_results.count_documents({"job_id": job["job_id"]})
+    return jsonify({
+        "job_id":      job["job_id"],
+        "targets":     job["targets"],
+        "timestamp":   job["timestamp"].isoformat(),
+        "status":      job["status"],
+        "result_count": cnt
+    }), 200
+
+
+@config_api.route('/api/scan/stats', methods=['GET'])
+@jwt_required()
+def get_stats():
+    """Return scan statistics for today for the current user."""
+    db = MongoClient(settings.backend.mongo_url).get_default_database()
+    user = get_jwt_identity()
+    now = datetime.datetime.now()
+    week_ago = now - datetime.timedelta(days=7)
+
+    # количество заданий
+    scans_today = db.scan_jobs.count_documents({
+        "initiator": user,
+        "timestamp": {"$gte": week_ago}
+    })
+    # суммарное число целей
+    total_targets = 0
+    for job in db.scan_jobs.find({
+        "initiator": user,
+        "timestamp": {"$gte": week_ago}
+    }, {"targets": 1}):
+        total_targets += len(job.get("targets", []))
+
+    return jsonify({
+        "scans_last_7_days":   scans_today,
+        "targets_last_7_days": total_targets
+    }), 200
 
 
 @config_api.route('/api/check_modules', methods=['GET'])

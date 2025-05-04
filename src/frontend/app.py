@@ -6,6 +6,7 @@ from flask_httpauth import HTTPBasicAuth
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
 from datetime import timedelta
+from pymongo import MongoClient
 
 from bountyforge.config import settings
 from bountyforge.utils import init_logging
@@ -119,7 +120,9 @@ def dashboard():
         "dashboard.html",
         api_check_modules_url=f"{BACKEND_URL}/api/check_modules",
         api_start_scan_url=f"{BACKEND_URL}/api/start_scan",
-        api_hosts_url=f"{BACKEND_URL}/api/hosts"
+        api_hosts_url=f"{BACKEND_URL}/api/hosts",
+        api_last_scan_url=f"{BACKEND_URL}/api/scan/last",
+        api_stats_url=f"{BACKEND_URL}/api/scan/stats"
     )
 
 
@@ -135,14 +138,27 @@ def scan_settings():
     )
 
 
+# @app.route("/scan_history")
+# @login_required
+# def scan_history():
+#     dummy_history = [
+#         {"target": "example.com", "tool": "nmap", "result": "200 ports found", "timestamp": "2025-04-01 12:00"},  # noqa
+#         {"target": "test.com", "tool": "httpx", "result": "HTTP 200", "timestamp": "2025-04-02 15:30"}  # noqa
+#     ]
+#     return render_template("scan_history.html", history=dummy_history)
+
 @app.route("/scan_history")
 @login_required
 def scan_history():
-    dummy_history = [
-        {"target": "example.com", "tool": "nmap", "result": "200 ports found", "timestamp": "2025-04-01 12:00"},  # noqa
-        {"target": "test.com", "tool": "httpx", "result": "HTTP 200", "timestamp": "2025-04-02 15:30"}  # noqa
-    ]
-    return render_template("scan_history.html", history=dummy_history)
+    mongo = MongoClient(settings.backend.mongo_url)
+    db = mongo.get_default_database()
+    # выборка последних 20 сканов текущего пользователя
+    docs = db.scan_jobs\
+             .find({"initiator": session["user"]}, {"_id": 0})\
+             .sort("timestamp", -1)\
+             .limit(20)
+    history = list(docs)
+    return render_template("scan_history.html", history=history)
 
 
 @app.route("/reports")
@@ -153,6 +169,29 @@ def reports():
         {"report_id": 2, "title": "Report for test.com", "date": "2025-04-02"}
     ]
     return render_template("reports.html", reports=dummy_reports)
+
+
+@app.route('/scan/<scan_id>')
+@login_required
+def scan_details(scan_id):
+    resp = requests.get(
+        f"{INTERNAL_BACKEND_URL}/api/scan/{scan_id}",
+        headers={"Authorization": "Bearer " + session['jwt_token']},
+        timeout=15
+    )
+    if resp.status_code == 404:
+        flash("Scan not found", "danger")
+        return redirect(url_for("scan_history"))
+    job = resp.json()
+
+    return render_template(
+        'scan_details.html',
+        scan_id=scan_id,
+        status=job.get("status", "unknown"),
+        targets=job.get("targets", []),
+        initiated=job.get("timestamp"),
+        stream_url=job["stream_url"]
+    )
 
 
 @app.route("/launch_scan")

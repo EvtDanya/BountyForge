@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Union
 import os
 import subprocess
 import logging
+from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
 logger = logging.getLogger(__name__)
@@ -18,10 +19,11 @@ class NucleiModule(Module):
     def __init__(
         self,
         target: Union[str, List[str]],
-        target_type: TargetType = TargetType.SINGLE,
-        templates_dir: str = "",
+        target_type: TargetType,
         scan_type: ScanType = ScanType.DEFAULT,
-        additional_flags: List[str] = None
+        additional_flags: List[str] = None,
+        templates_dir: str = "",
+        **kwargs
     ) -> None:
         """
         :param target: Single target string or list of targets.
@@ -30,6 +32,13 @@ class NucleiModule(Module):
         :param scan_type: One of ScanType.
         :param additional_flags: Extra CLI flags.
         """
+        # check for unexpected args
+        # unexpected_args = set(kwargs) - {f.name for f in fields(self)}
+        # if unexpected_args:
+        #     logger.warning(
+        #         f"Unexpected arguments: {', '.join(unexpected_args)}"
+        #     )
+
         super().__init__(
             scan_type=scan_type,
             target=target,
