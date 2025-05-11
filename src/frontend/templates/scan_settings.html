@@ -136,23 +136,23 @@
     </div>
   </div>
 
-  <!-- Subdomain Bruteforce Settings -->
+  <!-- FFUF Settings (Subdomains + Directories) -->
   <div class="card mb-4 shadow-sm">
-    <div class="card-header bg-danger text-white">
-      <h5><i class="fas fa-bolt me-2"></i>Subdomain Bruteforce</h5>
+    <div class="card-header bg-secondary text-white">
+      <h5><i class="fas fa-folder-open me-2"></i>FFUF Settings</h5>
     </div>
     <div class="card-body">
       <div class="mb-3">
-        <label for="bruteforce_wordlist" class="form-label">Wordlist:</label>
-        <select class="form-select" id="bruteforce_wordlist" name="bruteforce_wordlist">
-          <option value="subdomains-small.txt">subdomains-small.txt</option>
-          <option value="subdomains-medium.txt">subdomains-medium.txt</option>
-          <option value="subdomains-large.txt">subdomains-large.txt</option>
-        </select>
+        <label for="ffuf_dns_wordlist" class="form-label">DNS Wordlist:</label>
+        <select class="form-select" id="ffuf_dns_wordlist" name="ffuf_dns_wordlist"></select>
       </div>
       <div class="mb-3">
-        <label for="bruteforce_flags" class="form-label">Additional Flags:</label>
-        <input type="text" class="form-control" id="bruteforce_flags" name="bruteforce_flags" value="">
+        <label for="ffuf_directories_wordlist" class="form-label">Directories Wordlist:</label>
+        <select class="form-select" id="ffuf_directories_wordlist" name="ffuf_directories_wordlist"></select>
+      </div>
+      <div class="mb-3">
+        <label for="ffuf_flags" class="form-label">Additional Flags:</label>
+        <input type="text" class="form-control" id="ffuf_flags" name="ffuf_flags" value="">
       </div>
     </div>
   </div>
@@ -218,18 +218,36 @@
     .then(data => {
       // global
       document.getElementById("rate_limit").value = data.backend.rate_limit || "";
-      document.getElementById("timeout").value    = data.backend.timeout    || "";
+      document.getElementById("timeout").value = data.backend.timeout    || "";
+      
       // nmap
-      document.getElementById("nmap_" + data.scanners.nmap.scan_type)?.click();
+      document.getElementById("nmap_" + data.scanners.nmap.mode)?.click();
       document.getElementById("nmap_flags").value = data.scanners.nmap.additional_flags || "";
+      
       // subfinder
       document.getElementById("subfinder_flags").value = data.scanners.subfinder.additional_flags || "";
-      // bruteforce
-      document.getElementById("bruteforce_wordlist").value =
-        data.scanners.subdomain_bruteforce.wordlist ||
-        document.querySelector("#bruteforce_wordlist option").value;
-      document.getElementById("bruteforce_flags").value =
-        data.scanners.subdomain_bruteforce.additional_flags || "";
+      
+      // FFUF dns wordlist
+      const dnsWL = data.scanners.available_wordlists.dns||[];
+      const dnsSel= document.getElementById("ffuf_dns_wordlist");
+      dnsWL.forEach(fp=>{
+        const o=new Option(fp.replace("dns/",""),fp);
+        dnsSel.add(o);
+      });
+      document.getElementById("ffuf_dns_wordlist").value = data.scanners.ffuf.dns_wordlist;
+
+      // FFUF directories wordlist
+      const dirWL = data.scanners.available_wordlists["web-content"]||[];
+      const dirSel= document.getElementById("ffuf_directories_wordlist");
+      dirWL.forEach(fp=>{
+        const o=new Option(fp.replace("web-content/",""),fp);
+        dirSel.add(o);
+      });
+      document.getElementById("ffuf_directories_wordlist").value = data.scanners.ffuf.directories_wordlist;
+
+      // FFUF flags
+      document.getElementById("ffuf_flags").value = (data.scanners.ffuf.additional_flags||[]).join(" ");
+
       // httpx
       document.getElementById("httpx_" + data.scanners.httpx.mode)?.click();
       document.getElementById("httpx_flags").value = data.scanners.httpx.additional_flags || "";
@@ -248,28 +266,29 @@
       const payload = {
         backend: {
           rate_limit: Number(document.getElementById("rate_limit").value),
-          timeout:     Number(document.getElementById("timeout").value)
+          timeout: Number(document.getElementById("timeout").value)
         },
         scanners: {
           nmap: {
-            scan_type:        document.querySelector("input[name='nmap_mode']:checked").value,
+            mode: document.querySelector("input[name='nmap_mode']:checked").value,
             additional_flags: document.getElementById("nmap_flags").value.split(/\s+/).filter(Boolean)
           },
           subfinder: {
             additional_flags: document.getElementById("subfinder_flags").value.split(/\s+/).filter(Boolean)
           },
-          subdomain_bruteforce: {
-            wordlist:         document.getElementById("bruteforce_wordlist").value,
-            additional_flags: document.getElementById("bruteforce_flags").value.split(/\s+/).filter(Boolean)
+          ffuf:{
+            dns_wordlist: document.getElementById("ffuf_dns_wordlist").value,
+            directories_wordlist: document.getElementById("ffuf_directories_wordlist").value,
+            additional_flags: document.getElementById("ffuf_flags").value.split(/\s+/).filter(Boolean)
           },
           httpx: {
-            mode:              document.querySelector("input[name='httpx_mode']:checked").value,
+            mode: document.querySelector("input[name='httpx_mode']:checked").value,
             additional_flags:  document.getElementById("httpx_flags").value.split(/\s+/).filter(Boolean)
           },
           nuclei: {
-            mode:              document.querySelector("input[name='nuclei_mode']:checked").value,
-            additional_flags:  document.getElementById("nuclei_flags").value.split(/\s+/).filter(Boolean),
-            templates_dir:     document.getElementById("nuclei_templates").value
+            mode: document.querySelector("input[name='nuclei_mode']:checked").value,
+            additional_flags: document.getElementById("nuclei_flags").value.split(/\s+/).filter(Boolean),
+            templates_dir: document.getElementById("nuclei_templates").value
           }
         }
       };
@@ -282,11 +301,23 @@
         },
         body: JSON.stringify(payload)
       })
-      .then(r => { if (!r.ok) throw new Error("Failed to save"); return r.json(); })
-      .then(() => showAlert('success', 'Settings saved!'))
+      .then(r => { 
+        if (!r.ok) throw new Error("Failed to save");
+         return r.json();
+      })
+      .then(() => {
+        showAlert('success', 'Settings saved!');
+        document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
+      })
       .catch(
-        err => showAlert('danger', 'Error saving settings: ' + err.message)
-      );
+        err => {
+          showAlert('danger', 'Error saving settings: ' + err.message);
+          document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     });
 
     // Update Nuclei
@@ -307,9 +338,15 @@
         }
         let j = await res.json();
         showAlert('success', j.message || 'Nuclei updated');
+        document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
         console.error(e);
         showAlert('danger', 'Error updating Nuclei: ' + e)
+        document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-sync"></i> Update Nuclei';
@@ -334,9 +371,15 @@
         }
         let j = await res.json();
         showAlert('success', j.message || 'Templates updated');
+        document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (e) {
         console.error(e);
         showAlert('danger', 'Error updating templates: ' + e)
+        document
+          .getElementById('notificationArea')
+          .scrollIntoView({ behavior: 'smooth', block: 'start' });
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-folder-open"></i> Update Templates';

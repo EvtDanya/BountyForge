@@ -2,7 +2,8 @@
 {% block content %}
   <div class="mb-4">
     <h2>Dashboard</h2>
-    <p>Welcome to BountyForge. Monitor your scan status, view statistics, and manage your scans here.</p>
+    <br>
+    <br>
     <!-- Buttons -->
     <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#launchScanModal">
       <i class="fas fa-play me-2"></i>Launch Scan
@@ -33,14 +34,6 @@
     </div>
 
     <!-- Last Scan card -->
-    <!-- <div class="col-lg-4 col-md-6 mb-3">
-      <div class="card text-white bg-secondary h-100 shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title" id="cardTitle"><i class="fas fa-rocket me-2"></i>Last Scan</h5>
-          <p id="lastScan" class="card-text">Loading…</p> 
-        </div>
-      </div>
-    </div> -->
       <div class="col-lg-4 col-md-6 mb-3">
             <div class="card text-white bg-secondary h-100 shadow-sm">
               <div class="card-body">
@@ -124,26 +117,41 @@ dev.internal.local"></textarea>
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Custom Headers:</label>
+              <label class="form-label">Custom Headers (one per line):</label>
               <textarea 
                   class="form-control"
                   name="headers"
                   rows="3"
                   placeholder="X-API-Key: 12345
 Authorization: Bearer token"></textarea>
-              <small class="text-muted">One header per line in format `Header: Value`</small>
             </div>
 
             <!-- Tool selection -->
             <h4>Select Tools</h4>
             <div class="mb-3">
               <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_subfinder" name="tools" value="subfinder">
+                <label class="form-check-label" for="tool_subfinder">Subfinder</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_subdomainbruteforce" name="tools" value="subdomainbruteforce">
+                <label class="form-check-label" for="tool_subdomainbruteforce">Subdomain Bruteforce</label>
+              </div>
+              <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox" id="tool_nmap" name="tools" value="nmap">
                 <label class="form-check-label" for="tool_nmap">Nmap</label>
               </div>
               <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="tool_subfinder" name="tools" value="subfinder">
-                <label class="form-check-label" for="tool_subfinder">Subfinder</label>
+                <input class="form-check-input" type="checkbox" id="tool_httpx" name="tools" value="httpx">
+                <label class="form-check-label" for="tool_httpx">Httpx</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_gobuster" name="tools" value="gobuster">
+                <label class="form-check-label" for="tool_gobuster">Directory Bruteforce</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tool_nuclei" name="tools" value="nuclei">
+                <label class="form-check-label" for="tool_nuclei">Nuclei</label>
               </div>
             </div>
 
@@ -323,16 +331,20 @@ Authorization: Bearer token"></textarea>
       });
 
       // Scan form logic
-      const targetTypeEl      = document.getElementById('target_type');
-      // const singleGroup       = document.getElementById('single_target_group');
-      const multipleGroup     = document.getElementById('multiple_target_group');
-      const fileGroup         = document.getElementById('file_target_group');
-      const excludeEl         = document.getElementById('target_exclude');
-      const scanForm          = document.getElementById('scanForm');
-      // const scanResult        = document.getElementById('scanResult');
-      const toolNmap          = document.getElementById('tool_nmap');
-      const toolSubfinder     = document.getElementById('tool_subfinder');
-      // const nmapSettings      = document.getElementById('nmap_settings');
+      const targetTypeEl = document.getElementById('target_type');
+      // const singleGroup = document.getElementById('single_target_group');
+      const multipleGroup = document.getElementById('multiple_target_group');
+      const fileGroup = document.getElementById('file_target_group');
+      const excludeEl = document.getElementById('target_exclude');
+      const scanForm = document.getElementById('scanForm');
+      // const scanResult = document.getElementById('scanResult');
+      const toolNmap = document.getElementById('tool_nmap');
+      const toolSubfinder = document.getElementById('tool_subfinder');
+      const toolSubdomainBruteforce = document.getElementById('tool_subdomainbruteforce');
+      const toolHttpx = document.getElementById('tool_httpx');
+      const toolGobuster = document.getElementById('tool_gobuster');
+      const toolNuclei = document.getElementById('tool_nuclei');
+      // const nmapSettings = document.getElementById('nmap_settings');
       // const subfinderSettings = document.getElementById('subfinder_settings');
 
       targetTypeEl.addEventListener('change', () => {
@@ -442,29 +454,46 @@ Authorization: Bearer token"></textarea>
           }
 
           const result = await res.json();
-          const { message, job_id, stream_url, valid_targets, skipped_targets } = result;
+          const { job_id, valid_targets, skipped_targets } = result;
           bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
-          showAlert('success', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+          // showAlert('success', `Scan <strong>${job_id}</strong> queued successfully!`);
+          const area = document.getElementById('notificationArea');
+          const card = document.createElement('div');
+          card.className = 'card text-white bg-success mb-3';
+          card.innerHTML = `
+            <div class="card-body"> 
+              <h5 class="card-title"><i class="fas fa-rocket me-2"></i>New Scan Queued</h5>
+              <p class="card-text"><strong>Job ID:</strong> ${job_id}</p>
+              <p class="card-text"><strong>Targets:</strong> ${valid_targets.join(', ')}</p>
+              ${ skipped_targets.length
+                ? `<p class="card-text"><small>Skipped invalid: ${skipped_targets.join(', ')}</small></p>`
+                : ''
+              }
+              <a href="/scan/${job_id}" class="btn btn-light btn-sm">
+                <i class="fas fa-arrow-right me-1"></i>Go to Scan Details
+              </a>
+            </div>`;
+          area.appendChild(card);
 
-          const evtSource = new EventSource(stream_url);
-          evtSource.onmessage = e => {
-            const evt = JSON.parse(e.data);
-            console.log("SSE event:", evt);
-            switch(evt.event) {
-              case "started":
-                showAlert("info", "Scan started…");
-                break;
-              case "result":
-                break;
-              case "error":
-                showAlert("danger", `${evt.tool}: ${evt.msg}`);
-                break;
-              case "finished":
-                showAlert("success", "Scan finished");
-                evtSource.close();
-                break;
-            }
-          };
+          // const evtSource = new EventSource(stream_url);
+          // evtSource.onmessage = e => {
+          //   const evt = JSON.parse(e.data);
+          //   console.log("SSE event:", evt);
+          //   switch(evt.event) {
+          //     case "started":
+          //       showAlert("info", "Scan started…");
+          //       break;
+          //     case "result":
+          //       break;
+          //     case "error":
+          //       showAlert("danger", `${evt.tool}: ${evt.msg}`);
+          //       break;
+          //     case "finished":
+          //       showAlert("success", "Scan finished");
+          //       evtSource.close();
+          //       break;
+          //   }
+          // };
         } catch (err) {
           console.error('Scan error:', err);
           showAlert('danger', `${err.message}`);

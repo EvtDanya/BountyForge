@@ -4,19 +4,16 @@ import datetime
 import redis
 import validators
 import json
+from dataclasses import asdict
 from flask import (
     Blueprint, jsonify, request, Response, url_for, stream_with_context
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from bountyforge.config import settings, Config
+from bountyforge.config import settings
 from flask_jwt_extended import (
   JWTManager, create_access_token, jwt_required, get_jwt_identity
 )
 from pymongo import MongoClient
-# from bountyforge.modules import (
-#     HttpxModule, NmapModule,
-#     NucleiModule, SubdomainBruteforceModule, SubfinderModule
-# )
 from bountyforge.core import module_manager
 from bountyforge.core import run_scan_task
 
@@ -64,12 +61,23 @@ def get_config():
     """
     Return the current configuration as JSON
     """
-    # current_user = get_jwt_identity()
     try:
-        return jsonify(settings), 200
+        cfg = asdict(settings)
+        return jsonify(cfg), 200
     except Exception as ex:
         logger.exception(f"Error getting config: {ex}")
         return jsonify({"error": str(ex)}), 500
+
+
+def update_dict(target, new_data):
+    for key, value in new_data.items():
+        if isinstance(value, dict):
+            if key in target and isinstance(target.get(key), dict):
+                update_dict(target[key], value)
+            else:
+                target[key] = value
+        else:
+            target[key] = value
 
 
 @config_api.route('/api/save_config', methods=['POST'])
@@ -78,17 +86,21 @@ def save_config():
     """
     Save the configuration to YAML file and update the global settings object
     """
-    # current_user = get_jwt_identity()
     try:
         data = request.get_json()
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        if "scanners" in data:
-            settings.scanners =\
-                Config(**{"scanners": data["scanners"]}).scanners
+        if data.get("backend"):
+            for key, val in data["backend"].items():
+                if hasattr(settings.backend, key):
+                    setattr(settings.backend, key, val)
+
+        if data.get("scanners"):
+            update_dict(settings.scanners.__dict__, data["scanners"])
 
         settings.save()
+        logger.info(f"new settings: {settings}")
 
         return jsonify({"message": "Configuration saved successfully"}), 200
     except Exception as ex:
@@ -125,36 +137,6 @@ def filter_valid(entries):
         else:
             skipped.append(e)
     return valid, skipped
-
-
-# @config_api.route('/api/start_scan', methods=['POST'])
-# @jwt_required()
-# def start_scan():
-#     """
-#     Endpoint for starting a scan
-#     """
-#     data = request.get_json()
-#     logger.info(data)
-#     if not data:
-#         return jsonify({"error": "No data provided"}), 400
-
-#     target = data.get("target", [])
-#     if not isinstance(target, list) or not target:
-#         return jsonify({"error": "Invalid hosts for scanning"}), 400
-#     # if not check_hosts_for_scan(data.get("target", [])):
-#     #     return jsonify({"error": "Invalid hosts for scanning"}), 400
-
-#     filtered_hosts = list(filter(validators.domain, target))
-#     not_hosts = list(set(target) - set(filtered_hosts))
-#     if not filtered_hosts:
-#         logger.warning(f"No valid hosts provided: {not_hosts}")
-#         return jsonify({"error": "No valid hosts provided"}), 400
-
-#     if not_hosts:
-#         logger.warning(f"Invalid hosts: {not_hosts}")
-
-#     # task = run_scan_task.delay(data)  # Запуск задачи в фоне
-#     return jsonify({"message": "OK"}), 202
 
 
 @config_api.route('/api/start_scan', methods=['POST'])
@@ -234,6 +216,7 @@ def get_scan(job_id):
     if not job:
         return jsonify({"error": "Scan not found"}), 404
 
+    logger.info(f"scan job: {job}")
     return jsonify({
         **job
         # "stream_url": url_for(
@@ -303,10 +286,10 @@ def get_last_scan():
 
     cnt = db.scan_results.count_documents({"job_id": job["job_id"]})
     return jsonify({
-        "job_id":      job["job_id"],
-        "targets":     job["targets"],
-        "timestamp":   job["timestamp"].isoformat(),
-        "status":      job["status"],
+        "job_id": job["job_id"],
+        "targets": job["targets"],
+        "timestamp": job["timestamp"].isoformat(),
+        "status": job["status"],
         "result_count": cnt
     }), 200
 
@@ -344,29 +327,6 @@ def get_stats():
 @jwt_required()
 def check_modules():
     statuses = module_manager.check_availability()
-    # modules = {
-    #     "nmap": NmapModule,
-    #     "nuclei": NucleiModule,
-    #     "httpx": HttpxModule,
-    #     "subfinder": SubfinderModule,
-    #     "subdomain_bruteforce": SubdomainBruteforceModule
-    # }
-
-    # statuses = {}
-    # for name, module_cls in modules.items():
-    #     try:
-    #         status = module_cls.check_availability()
-    #         statuses[name] = {
-    #             "available": status["available"],
-    #             "version": status["version"]
-    #         }
-    #     except Exception as e:
-    #         logger.error(f"Check failed for {name}: {str(e)}")
-    #         statuses[name] = {
-    #             "available": False,
-    #             "version": None
-    #         }
-
     return jsonify(statuses), 200
 
 

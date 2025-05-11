@@ -1,13 +1,10 @@
 # syntax=docker/dockerfile:1
 
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    git \
-    libpcap-dev \
-    wget \
-    ca-certificates \
-    nmap \
+
+# install system dependencies and tools
+RUN apt-get update \
+    && apt-get install -y build-essential git libpcap-dev wget ca-certificates nmap \
     && rm -rf /var/lib/apt/lists/
 
 ENV GO_VERSION=1.21.7
@@ -18,28 +15,20 @@ ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 
 RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
     && go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest \
-    && go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+    && go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest \
+    && go install -v github.com/ffuf/ffuf/v2@latest \
+    && nuclei -update-templates
 
-RUN nuclei -update-templates
-# ENV SUBFINDER_VERSION=2.7.1 \
-#     HTTPX_VERSION=v1.7.0 \
-#     NUCLEI_VERSION=v3.4.2
+# wordlists
+WORKDIR /tmp/SecLists
+RUN git clone --depth 1 --filter=blob:none --sparse https://github.com/danielmiessler/SecLists.git . \
+    && git sparse-checkout set Discovery/Web-Content Discovery/DNS \
+    && mkdir -p /app/wordlists/web-content /app/wordlists/dns \
+    && find Discovery/Web-Content -maxdepth 1 -type f -exec cp {} /app/wordlists/web-content/ \; \
+    && find Discovery/DNS         -maxdepth 1 -type f -exec cp {} /app/wordlists/dns/         \; \
+    && rm -rf /tmp/SecLists
 
-# RUN wget https://github.com/projectdiscovery/subfinder/releases/download/${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_amd64.tar.gz \
-#     && tar -xzf subfinder_${SUBFINDER_VERSION}_linux_amd64.tar.gz \
-#     && mv subfinder /usr/local/bin/ \
-#     && rm -rf subfinder_*
-
-# RUN wget https://github.com/projectdiscovery/httpx/releases/download/${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_amd64.tar.gz \
-#     && tar -xzf httpx_${HTTPX_VERSION}_linux_amd64.tar.gz \
-#     && mv httpx /usr/local/bin/ \
-#     && rm -rf httpx_*
-
-# RUN wget https://github.com/projectdiscovery/nuclei/releases/download/${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.tar.gz \
-#     && tar -xzf nuclei_${NUCLEI_VERSION}_linux_amd64.tar.gz \
-#     && mv nuclei /usr/local/bin/ \
-#     && rm -rf nuclei_*
-
+# application
 WORKDIR /app
 
 COPY ./requirements.txt ./requirements.txt
@@ -49,7 +38,6 @@ RUN ["python", "-m", "pip", "install", "-r", "requirements.txt"]
 
 COPY ./src/bountyforge ./bountyforge
 COPY ./src/backend ./backend
-# COPY ./static ./static
 ENV PYTHONPATH="/app/"
 
 RUN mkdir -p /var/log/bountyforge

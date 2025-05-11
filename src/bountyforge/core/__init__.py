@@ -4,5 +4,5 @@ from .task import run_scan_task
 
 __all__ = (
     'Module', 'TargetType',
-    'ScanType', 'module_manager', 'ModuleManager', 'run_scan_task'
+    'ScanType', 'module_manager', 'ModuleManager', 'run_scan_task',
 )

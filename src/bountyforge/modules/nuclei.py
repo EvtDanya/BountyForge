@@ -1,7 +1,8 @@
-from typing import Any, Dict, List, Union
 import os
 import subprocess
 import logging
+import json
+from typing import Any, Dict, List, Union
 from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
@@ -21,6 +22,7 @@ class NucleiModule(Module):
         target: Union[str, List[str]],
         target_type: TargetType,
         scan_type: ScanType = ScanType.DEFAULT,
+        exclude: List[str] = None,
         additional_flags: List[str] = None,
         templates_dir: str = "",
         **kwargs
@@ -43,6 +45,7 @@ class NucleiModule(Module):
             scan_type=scan_type,
             target=target,
             target_type=target_type,
+            exclude=exclude,
             additional_flags=additional_flags
         )
         self.templates_dir = templates_dir
@@ -52,32 +55,40 @@ class NucleiModule(Module):
         Construct the nuclei command based on target and configuration.
         """
         cmd = super()._build_base_command()
-        cmd += ["-silent", "-stats", "-json", "-disable-update-check"]
+        cmd += ["-silent", "-j", "-disable-update-check"]
 
-        if self.target_type == TargetType.SINGLE:
-            cmd += ["-u", target_str]
-        else:
-            cmd += ["-l", target_str]
+        match self.target_type:
+            case TargetType.FILE:
+                cmd.extend(["-l", target_str])
+            case TargetType.SINGLE | TargetType.MULTIPLE:
+                cmd.extend(["-u", target_str])
+            case _:
+                cmd.extend(["-u", target_str])
 
         if self.templates_dir:
             cmd += ["-t", self.templates_dir]
 
-        match self.scan_type:
-            case ScanType.AGGRESSIVE:
-                # increase rate-limit for aggressive mode
-                cmd += ["-rate-limit", "200"]
-            case ScanType.FULL:
-                # run all templates
-                cmd += ["-all"]
-            case ScanType.RECON:
-                # recon mode: output extra metadata
-                cmd += ["-json"]
-            case _:
-                pass
+        # match self.scan_type:
+        #     case ScanType.AGGRESSIVE:
+        #         # increase rate-limit for aggressive mode
+        #         cmd += ["-rate-limit", "200"]
+        #     case ScanType.FULL:
+        #         # run all templates
+        #         cmd += ["-all"]
+        #     case ScanType.RECON:
+        #         # recon mode: output extra metadata
+        #         # cmd += ["-json"]
+        #         pass
+        #     case _:
+        #         pass
 
         if self.additional_flags:
             cmd += self.additional_flags
 
+        if self.exclude:
+            cmd.extend(["-exclude-hosts", ",".join(self.exclude)])
+
+        logger.info(f"Command: {cmd}")
         return cmd
 
     def _post_run(
@@ -145,3 +156,8 @@ class NucleiModule(Module):
         )
         logger.info(result.stdout or result.stderr)
         return cls._parse_version(result.stdout or result.stderr)
+
+    def _parse_output(self, output: str) -> List[Dict[str, Any]]:
+        return [
+            json.loads(line) for line in output.splitlines() if line.strip()
+        ]

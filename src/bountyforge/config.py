@@ -3,13 +3,13 @@ import os
 from dataclasses import asdict, dataclass, field
 from dataclasses import fields as dc_fields
 from pathlib import Path
-from typing import Self, Dict, Any
+from typing import Self, Dict, Any, List
 
 import yaml
 from dotenv import load_dotenv
 
 logger = logging.getLogger('bountyforge')
-
+WORDLIST_BASE = os.getenv("WORDLIST_BASE", "/app/wordlists")
 
 # @dataclass
 # class BountyForge(object):
@@ -64,7 +64,8 @@ class BackendBountyForge(BaseApp):
     threads: int = 1
     timeout: int = 120
     rate_limit: int = "20"
-    project_version: str = "0.1.2"
+    project_version: str = "0.1.5"
+    abort_on_error: bool = False
 
     def __post_init__(self):
         super().__post_init__()
@@ -102,29 +103,42 @@ class ScannerSettings(object):
 
     This includes settings for individual scanning modules.
     """
+    available_wordlists: Dict[str, List[str]] = field(default_factory=dict)
+
     nmap: Dict[str, Any] = field(default_factory=lambda: {
-        "scan_type": "default",  # Options: "default", "aggressive", "full"
+        "mode": "default",  # Options: "default", "aggressive", "full"
         "additional_flags": []
     })
     subfinder: Dict[str, Any] = field(default_factory=lambda: {
         "additional_flags": []
     })
-    subdomain_bruteforce: Dict[str, Any] = field(default_factory=lambda: {
-        "wordlist": "subdomains-small.txt",
-        "additional_flags": []
+    ffuf: Dict[str, Any] = field(default_factory=lambda: {
+        "dns_wordlist": "dns/subdomains-top1million-5000.txt",
+        "directories_wordlist": "web-content/common.txt",
+        "additional_flags": [],
     })
     httpx: Dict[str, Any] = field(default_factory=lambda: {
         "mode": "recon",   # Options: "recon", "live"
         "additional_flags": []
     })
-
     nuclei: Dict[str, Any] = field(default_factory=lambda: {
         "mode": "full",   # Options: "full", "fast"
         "additional_flags": []
     })
 
     def __post_init__(self):
-        pass
+        self.available_wordlists = {}
+        for category in ("dns", "web-content"):
+            dirpath = os.path.join(WORDLIST_BASE, category)
+            try:
+                files = [
+                    os.path.join(category, fn)
+                    for fn in sorted(os.listdir(dirpath))
+                    if os.path.isfile(os.path.join(dirpath, fn))
+                ]
+            except FileNotFoundError:
+                files = []
+            self.available_wordlists[category] = files
 
 
 @dataclass

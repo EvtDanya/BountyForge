@@ -1,5 +1,6 @@
 import logging
-from typing import List, Union
+import json
+from typing import List, Union, Dict, Any
 from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
@@ -21,7 +22,9 @@ class HttpxModule(Module):
         target: Union[str, List[str]],
         target_type: TargetType,
         scan_type: ScanType = ScanType.RECON,
+        exclude: List[str] = None,
         additional_flags: List[str] = None,
+        headers: dict = None,
         **kwargs
     ) -> None:
         # check for unexpected args
@@ -35,7 +38,9 @@ class HttpxModule(Module):
             scan_type=scan_type,
             target=target,
             target_type=target_type,
-            additional_flags=additional_flags
+            exclude=exclude,
+            additional_flags=additional_flags,
+            headers=headers
         )
 
     def _build_command(self, target_str: str) -> List[str]:
@@ -46,9 +51,9 @@ class HttpxModule(Module):
         :return: A list of command arguments to execute
         """
         command = super()._build_base_command()
-        command += self._prepare_headers(self.headers)
+        command += self._prepare_headers()
 
-        command += ["-silent"]
+        command += ["-silent", "-j", "-disable-update-check"]
 
         match self.scan_type:
             case ScanType.RECON:
@@ -72,4 +77,12 @@ class HttpxModule(Module):
         if self.additional_flags:
             command.append(self.additional_flags)
 
+        if self.exclude:
+            command.extend(["-exclude", ",".join(self.exclude)])
+
         return command
+
+    def _parse_output(self, output: str) -> List[Dict[str, Any]]:
+        return [
+            json.loads(line) for line in output.splitlines() if line.strip()
+        ]

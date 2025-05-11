@@ -19,8 +19,8 @@ class ModuleManager:
 
     def _discover_modules(self) -> None:
         """
-        Walk through bountyforge.modules package, импортим модули
-        и регистрируем все классы-наследники Module.
+        Walk through bountyforge.modules package, import modules
+        and register classes from Module.
         """
         import bountyforge.modules as modules_pkg
 

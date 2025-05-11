@@ -152,11 +152,9 @@ def scan_settings():
 def scan_history():
     mongo = MongoClient(settings.backend.mongo_url)
     db = mongo.get_default_database()
-    # выборка последних 20 сканов текущего пользователя
     docs = db.scan_jobs\
              .find({"initiator": session["user"]}, {"_id": 0})\
-             .sort("timestamp", -1)\
-             .limit(20)
+             .sort("timestamp", -1)
     history = list(docs)
     return render_template("scan_history.html", history=history)
 
@@ -237,32 +235,6 @@ def upload_targets():
     content = f.read().decode('utf-8', errors='ignore')
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     return jsonify({'targets': lines}), 200
-
-
-# @app.route("/api/start_scan", methods=["POST"])
-# @auth.login_required
-# def start_scan():
-#     """
-#     API Endpoint to start a scan.
-#     Ожидается JSON:
-#     {
-#       "target": "example.com",
-#       "target_type": "single",
-#       "tools": ["nmap", "subfinder"],
-#       "params": {
-#           "nmap": { "scan_type": "aggressive", "additional_flags": "" },
-#           "subfinder": { "additional_flags": "" }
-#       }
-#     }
-#     """
-#     data = request.get_json()
-#     if not data or "target" not in data or "tools" not in data:
-#         return jsonify({"error": "Invalid request"}), 400
-
-#     logger.info(f"Received scan request: {data}")
-#     return jsonify(
-#         {"message": "Scan job created", "job_id": "dummy_job_id"}
-#     ), 202
 
 
 def create_app() -> Flask:

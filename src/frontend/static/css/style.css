@@ -16,6 +16,7 @@ html, body {
 /* Полноэкранный Wrapper */
 html, body, #wrapper {
   height: 100%;
+  overflow:auto;
 }
 
 #wrapper {
@@ -153,4 +154,23 @@ html, body, #wrapper {
   width: 24px;
   height: 24px;
   margin-right: 0.5rem;
+}
+
+#rawOutput {
+  white-space: pre-wrap;
+  font-family: monospace;
+  margin: 0;
+  padding: 0;
+}
+
+.output-line {
+  font-family: monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+  border-bottom: 1px solid #002800;
+  padding: 2px 0;
+}
+
+.text-danger {
+  color: #ff5555 !important;
 }

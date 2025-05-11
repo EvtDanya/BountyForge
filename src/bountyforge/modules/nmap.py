@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import List, Union
+from typing import List, Union, Dict, Any
 from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
@@ -20,6 +20,7 @@ class NmapModule(Module):
         target: Union[str, List[str]],
         target_type: TargetType = TargetType.SINGLE,
         scan_type: ScanType = ScanType.DEFAULT,
+        exclude: List[str] = None,
         additional_flags: List[str] = None,
         **kwargs
     ) -> None:
@@ -34,13 +35,14 @@ class NmapModule(Module):
             scan_type=scan_type,
             target=target,
             target_type=target_type,
+            exclude=exclude,
             additional_flags=additional_flags
         )
 
     def _build_command(self, target_str: str) -> List[str]:
         command = super()._build_base_command()
 
-        command += ["-Pn", "-p", "8080,53,135,445"]
+        command += ["-Pn"]
 
         match self.scan_type:
             case ScanType.AGGRESSIVE:
@@ -64,6 +66,9 @@ class NmapModule(Module):
         if self.additional_flags:
             command.append(self.additional_flags)
 
+        if self.exclude:
+            command.extend(["--exclude", ",".join(self.exclude)])
+
         logger.info(f"Command: {command}")
         return command
 
@@ -74,3 +79,26 @@ class NmapModule(Module):
         """
         match = re.search(r'Nmap version\s+(\d+\.\d+(?:\.\d+)?)', output)
         return match.group(1) if match else "unknown"
+
+    def _parse_output(self, output: str) -> Dict[str, Any]:
+        """
+        Parse output from Nmap scan
+        """
+        lines = output.splitlines()
+        results = []
+        port_line_re = re.compile(r'^(\d+/\w+)\s+(\w+)\s+(\S+)\s*(.*)$')
+
+        for line in lines:
+            m = port_line_re.match(line.strip())
+            if m:
+                port, state, service, extra = m.groups()
+                entry = {
+                    "port": port,
+                    "state": state,
+                    "service": service,
+                }
+                if extra:
+                    entry["info"] = extra
+                results.append(entry)
+
+        return results

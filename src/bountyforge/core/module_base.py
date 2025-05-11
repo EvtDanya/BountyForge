@@ -24,6 +24,8 @@ class ScanType(enum.Enum):
     FULL = "full"
     RECON = "recon"
     LIVE = "live"
+    SUBDOMAIN = "subdomain"
+    DIRECTORY = "directory"
 
 
 class TargetType(enum.Enum):
@@ -49,13 +51,16 @@ class Module():
     additional_flags: List[str] = None
     timeout: int = 7200  # 2 hours
     binary_name: str = ""
+    headers: dict = None
 
     def __init__(
         self,
         scan_type: ScanType,
         target: Union[str, List[str]],
         target_type: TargetType = TargetType.SINGLE,
-        additional_flags: List[str] = None
+        exclude: List[str] = None,
+        additional_flags: List[str] = None,
+        headers: dict = None,
     ) -> None:
         """
         Initialize the module
@@ -68,8 +73,9 @@ class Module():
         self.scan_type = scan_type
         self.target = target
         self.target_type = target_type
-        self.additional_flags = additional_flags\
-            if additional_flags is not None else []
+        self.additional_flags = additional_flags or []
+        self.headers = headers or {}
+        self.exclude = exclude or []
 
     def _prepare_target(self) -> str:
         """
@@ -151,27 +157,27 @@ class Module():
             raise RuntimeError(f"Required binary {name} not found in PATH")
         return path
 
-    def _validate_headers(self, headers: dict):
+    def _validate_headers(self):
         """
         Validate optional headers provided for web scanning
         """
-        for k, v in headers.items():
+        for k, v in self.headers.items():
             if not isinstance(k, str) or not isinstance(v, str):
                 raise ValueError("Headers must be string key-value pairs")
             if ':' in k:
                 raise ValueError("Header name cannot contain ':'")
 
-    def _prepare_headers(self, headers: dict) -> List[str]:
+    def _prepare_headers(self) -> List[str]:
         """
         Преобразование headers в CLI флаги
         """
-        if not headers:
+        if not self.headers:
             return []
 
-        self._validate_headers(headers)
+        self._validate_headers(self.headers)
         flags = []
-        for key, value in headers.items():
-            flags.extend(["-H", f"{key}: {value}"])  #! nuclei/httpx
+        for key, value in self.headers.items():
+            flags.extend(["-H", f"{key}: {value}"])
         return flags
 
     def _build_base_command(self) -> List[str]:
@@ -231,13 +237,14 @@ class Module():
                 "returncode": process.returncode
             })
             logger.info(
-                "[i] Command executed successfully"
+                f"[{self.__class__.__name__}] Command executed successfully"
             )
             # return process.stdout.strip()
 
         except subprocess.CalledProcessError as e:
             logger.error(
-                f"[!] Command '{' '.join(command)}' failed with error: {e}"
+                f"[{self.__class__.__name__}] Command '{' '.join(command)}' "
+                f"failed with error: {e}"
             )
             result.update({
                 "output": e.stdout.strip(),
@@ -246,22 +253,33 @@ class Module():
             })
 
         except subprocess.TimeoutExpired:
-            error_msg = (
-                f"[!] Timeout ({self.timeout}s) "
+            logger.error(
+                f"[{self.__class__.__name__}] Timeout ({self.timeout}s) "
                 f"expired for command: {' '.join(command)}"
             )
-            result["error"] = error_msg
-            logger.error(error_msg)
+            result["error"] = (
+                f"Timeout ({self.timeout}s) expired for command: "
+                f"{' '.join(command)}"
+            )
 
         except Exception as e:
             logger.exception(
-                f"[ERR] Unexpected exception while executing command: "
-                f"{' '.join(command)}. Exception: {e}"
+                f"[{self.__class__.__name__}] Unexpected exception "
+                f"while executing command: {' '.join(command)}. Exception: {e}"
             )
-            error_msg = f"Unexpected error: {str(e)}"
-            result["error"] = error_msg
+            result["error"] = f"Unexpected error: {str(e)}"
 
         return result
+
+    def _parse_output(self, output: str) -> List[Dict[str, Any]]:
+        """
+
+        :param output: _description_
+        :type output: str
+        :return: _description_
+        :rtype: List[Dict[str, Any]]
+        """
+        return []
 
     def _post_run(self, target: str, result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -280,7 +298,10 @@ class Module():
                 "returncode": result["returncode"]
             }
 
-        return {"result": result["output"]}
+        return {
+            "result": result["output"],
+            "parsed": self._parse_output(result["output"]),
+        }
 
     def run(self) -> Dict[str, Any]:
         """
@@ -299,7 +320,11 @@ class Module():
             logger.exception(
                 f"Critical error in module {self.__class__.__name__}: {e}"
             )
-            return {"error": str(e), "success": False}
+            return {
+                "error": str(e),
+                "success": False,
+                "tool": self.__class__.__name__
+            }
 
     @classmethod
     def check_availability(cls) -> bool:
@@ -317,7 +342,7 @@ class Module():
     @classmethod
     def _parse_version(cls, output: str) -> str:
         """
-        Парсинг версии из вывода
+        Parse the version from the output of the command
         """
         match = re.search(r'\d+\.\d+\.\d+', output)
         return match.group(0) if match else "unknown"

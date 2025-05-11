@@ -24,7 +24,11 @@
           <td><a href="{{ url_for('scan_details', scan_id=job.job_id) }}">{{ job.job_id }}</a></td>
           <td>{{ job.targets|join(', ') }}</td>
           <td>{{ job.timestamp }}</td>
-          <td><span class="badge bg-{{ 'success' if job.status=='finished' else 'secondary' }}">{{ job.status }}</span></td>
+          <td>
+            <span class="badge bg-{{ 'success' if job.status == 'finished' else 'info' if job.status == 'running'  else 'danger' if job.status == 'error' else 'warning' if job.status == 'finished with errors' else 'secondary' }}">
+              {{ 'finished' if job.status == 'finished with errors' else job.status }}
+            </span>
+          </td>
         </tr>
       {% endfor %}
     </tbody>

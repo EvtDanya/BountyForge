@@ -16,8 +16,11 @@
       <div class="card shadow-sm">
         <div class="card-header bg-dark text-white">
           <i class="fas fa-terminal me-2"></i>Live Output
+          <button class="btn btn-sm btn-outline-light float-end" onclick="clearOutput()">
+            <i class="fas fa-eraser me-1"></i>Clear
+          </button>
         </div>
-        <div class="card-body p-3" style="background:#000; color:#0f0; height:400px; overflow:auto;">
+        <div class="card-body p-3" style="background:#000; color:#0f0; height:75vh; overflow:auto;">
           <pre id="rawOutput" class="mb-0"></pre>
         </div>
       </div>
@@ -27,73 +30,123 @@
 
 <script>
 const token = "{{ session.jwt_token }}";
+const STATUS_COLORS = {
+  'running': 'bg-info',
+  'finished': 'bg-success',
+  'error': 'bg-danger',
+  'finished_with_errors': 'bg-warning'
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   const statusBadge = document.getElementById('scanStatus');
   const rawOut = document.getElementById('rawOutput');
 
-
-  // 1) метаданные
-  const metaRes = await fetch("{{ api_scan_meta_url }}", {
-    headers: { 'Authorization': 'Bearer ' + token }
-  });
-  if (!metaRes.ok) {
-    statusBadge.textContent = 'Not found';
-    statusBadge.className = 'badge bg-danger';
-    return;
-  }
-  const meta = await metaRes.json();
-  const { status } = meta;
-
-  // 2) если уже finished, подтягиваем из БД
-  if (status === 'finished') {
-    statusBadge.textContent = 'Finished';
-    statusBadge.className = 'badge bg-success';
-    const resRes = await fetch("{{ api_scan_results_url }}", {
-      headers: { 'Authorization': 'Bearer ' + token }
-    });
-    const results = await resRes.json();
-    results.forEach(evt => {
-      const line = document.createElement('div');
-      line.textContent = `[${evt.tool}] ${evt.output||JSON.stringify(evt)}`;
-      rawOut.appendChild(line);
-    });
-    return;
-  }
-
-  // 3) иначе — слушаем SSE
-  statusBadge.textContent = 'Running';
-  statusBadge.className = 'badge bg-info';
-  const evtSource = new EventSource("{{ stream_url }}");
-
-  evtSource.onmessage = e => {
-    const evt = JSON.parse(e.data);
-    switch(evt.event) {
-      case 'started':
-        console.info('Scan started');
-        break;
-      case 'result': {
-        const line = document.createElement('div');
-        line.textContent = `[${evt.tool}] ${evt.output||JSON.stringify(evt)}`;
-        rawOut.appendChild(line);
-        break;
-      }
-      case 'error':
-        console.error(`[${evt.tool}] ERROR: ${evt.msg}`);
-        break;
-      case 'finished':
-        console.info('Scan finished');
-        statusBadge.textContent = 'Finished';
-        statusBadge.className = 'badge bg-success';
-        evtSource.close();
-        break;
+  const addOutputLine = (content, isError = false) => {
+    const lineElem = document.createElement('div');
+    lineElem.className = `output-line ${isError ? 'text-danger' : ''}`;
+    lineElem.innerHTML = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    rawOut.appendChild(lineElem);
+    
+    const isScrolledToBottom = rawOut.scrollHeight - rawOut.clientHeight <= rawOut.scrollTop + 50;
+    if (isScrolledToBottom) {
+      rawOut.scrollTop = rawOut.scrollHeight;
     }
   };
 
-  evtSource.onerror = () => {
-    statusBadge.textContent = 'Error';
-    statusBadge.className = 'badge bg-danger';
-    evtSource.close();
+  const updateStatus = (status) => {
+    statusBadge.textContent = status.replace(/_/g, ' ');
+    statusBadge.className = `badge ${STATUS_COLORS[status] || 'bg-secondary'}`;
   };
+
+  try {
+    const metaRes = await fetch("{{ api_scan_meta_url }}", {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (!metaRes.ok) {
+      updateStatus('error');
+      addOutputLine('[SYSTEM] Failed to load scan metadata', true);
+      return;
+    }
+
+    const meta = await metaRes.json();
+    const currentStatus = meta.status === 'finished with errors' ? 'finished_with_errors' : meta.status;
+
+    if (['finished', 'error', 'finished_with_errors'].includes(currentStatus)) {
+      updateStatus(currentStatus);
+      
+      const resRes = await fetch("{{ api_scan_results_url }}", {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      
+      if (!resRes.ok) {
+        addOutputLine('[SYSTEM] Failed to load results', true);
+        return;
+      }
+
+      const results = await resRes.json();
+      results.forEach(evt => {
+        const content = evt.error 
+          ? `[ERROR][${evt.tool}] ${evt.error}`
+          : `[${evt.tool}] ${evt.output || JSON.stringify(evt)}`;
+        
+        addOutputLine(content, !!evt.error);
+      });
+      return;
+    }
+
+    updateStatus(currentStatus);
+    const evtSource = new EventSource("{{ stream_url }}");
+    evtSource.onmessage = e => {
+      try {
+        const evt = JSON.parse(e.data);
+        switch(evt.event) {
+          case 'started':
+            updateStatus('running');
+            addOutputLine(`[SYSTEM] Scan started at ${new Date().toLocaleTimeString()}`);
+            break;
+
+          case 'result':
+            (evt.output || '').split('\n').forEach(line => {
+              if (line.trim()) addOutputLine(`[${evt.tool}] ${line}`);
+            });
+            break;
+
+          case 'error':
+            addOutputLine(`[ERROR][${evt.tool}] ${evt.msg}`, true);
+            break;
+
+          case 'finished_with_errors':
+            updateStatus('finished_with_errors');
+            addOutputLine(`[ERROR][${evt.tool}] ${evt.msg}`, true);
+            evtSource.close();
+            break;
+
+          case 'finished':
+            updateStatus('finished');
+            addOutputLine('[SYSTEM] Scan completed successfully');
+            evtSource.close();
+            break;
+        }
+      } catch (parseError) {
+        addOutputLine(`[SYSTEM] Failed to parse event: ${parseError}`, true);
+      }
+    };
+
+    evtSource.onerror = () => {
+      updateStatus('error');
+      addOutputLine('[SYSTEM] Connection error', true);
+      evtSource.close();
+    };
+
+  } catch (error) {
+    updateStatus('error');
+    addOutputLine(`[SYSTEM] Critical error: ${error.message}`, true);
+  }
 });
+
+function clearOutput() {
+  document.getElementById('rawOutput').innerHTML = '';
+}
 </script>
 {% endblock %}

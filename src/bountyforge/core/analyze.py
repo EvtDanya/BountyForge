@@ -2,7 +2,7 @@ import json
 from typing import List, Dict
 
 
-class NucleiScanAnalyzer:
+class ScanAnalyzer:
     def __init__(self, scan_results_file: str):
         """
         Initialize the analyzer with the path to the Nuclei scan results file.

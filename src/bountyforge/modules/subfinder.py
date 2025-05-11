@@ -1,5 +1,6 @@
 import logging
-from typing import List, Union
+import json
+from typing import List, Union, Dict, Any
 from dataclasses import fields
 from bountyforge.core import Module, ScanType, TargetType
 
@@ -39,7 +40,13 @@ class SubfinderModule(Module):
     def _build_command(self, target_str: str) -> List[str]:
         command = super()._build_base_command()
 
-        command += ["-silent", "-all"]
+        command += [
+            "-silent",
+            "-all",
+            "-recursive",
+            "-json",
+            "-disable-update-check"
+        ]
 
         match self.target_type:
             case TargetType.FILE:
@@ -55,52 +62,7 @@ class SubfinderModule(Module):
         logger.info(f"Command: {command}")
         return command
 
-# class ReconAbstractModule(abc.ABC):
-#     """
-#     Abstract class for recon submodules
-#     """
-#     def __init__(self):
-#         pass
-
-
-# class ReconModule:
-#     def __init__(self, target: str):
-#         self.target = target
-
-#     def run_subprocess(self, cmd: list[str]) -> list[str]:
-#         """
-#         ["subfinder", "-d", self.target, "-silent"]
-#         Run specified command
-
-#         :param cmd: _description_
-#         :type cmd: list[str]
-#         :return: _description_
-#         :rtype: list[str]
-#         """
-#         result = subprocess.run(
-#             cmd, capture_output=True, text=True
-#         )
-#         return result.stdout.splitlines()
-
-#     def filter_subdomains(self, subdomains: list[str]) -> list[str]:
-#         """_summary_
-
-#         :param subdomains: _description_
-#         :type subdomains: list[str]
-#         :return: _description_
-#         :rtype: list[str]
-#         """
-#         live_subdomains = []
-#         return live_subdomains
-
-# def run(target: str) -> dict:
-#     """
-#     Простейшая функция разведки: возвращает базовую информацию о цели.
-#     В дальнейшем можно расширить,
-# добавив вызовы к API, проверку DNS, WHOIS и т.д.
-#     """
-#     # Пока возвращаем фиктивные данные
-#     return {
-#         "target": target,
-#         "info": f"Собрана базовая информация о {target}"
-#     }
+    def _parse_output(self, output: str) -> List[Dict[str, Any]]:
+        return [
+            json.loads(line) for line in output.splitlines() if line.strip()
+        ]
