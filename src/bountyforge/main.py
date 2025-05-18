@@ -84,30 +84,23 @@ def create_app() -> flask.Flask | None:
 
     jwt.init_app(app)
 
+    frontend_origins = [
+        f'http://{settings.backend.frontend_host}:{settings.frontend.port}',
+        f'http://127.0.0.1:{settings.frontend.port}',
+        f'http://localhost:{settings.frontend.port}'
+    ]
+
     CORS(
         app,
         resources={
             r"/api/*": {
-                "origins": '*', # f"http://{settings.backend.frontend_host}:{settings.frontend.port}",  # noqa
+                "origins": frontend_origins,  # '*', # f"http://{settings.backend.frontend_host}:{settings.frontend.port}",  # noqa
                 "allow_headers": ["Authorization", "Content-Type"],
                 "supports_credentials": True
             }
         }
     )
     app.register_blueprint(config_api)
-
-    # # Регистрируем сканирующие модули через ModuleManager
-    # module_manager = ModuleManager(settings.scanners)
-    # module_manager.load_modules()
-
-    # # Опционально: можем создать и настроить Engine
-    # для последовательного запуска модулей
-    # engine = Engine()
-    # for module in module_manager.modules.values():
-    #     engine.register_module(module)
-
-    # # Запускаем все модули для тестового target (например, "example.com")
-    # engine.run("example.com")
 
     return app
 

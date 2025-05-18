@@ -132,5 +132,7 @@ class FfufModule(Module):
             )
             return cls._parse_version(result.stdout or result.stderr)
         except Exception as e:
-            logger.error(f"Version check failed: {str(e)}")
+            logger.error(
+                f"[{cls.__name__}] Version check failed: {str(e)}"
+            )
             return None
