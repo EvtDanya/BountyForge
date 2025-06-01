@@ -1,11 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Reports</h1>
-  <ul class="list-group">
-    {% for report in reports %}
-    <li class="list-group-item">
-      <strong>{{ report.title }}</strong> ({{ report.date }})
-    </li>
-    {% endfor %}
-  </ul>
+  <div class="container py-4">
+    <h1 class="mb-4">Reports</h1>
+    <ul class="list-group">
+      {% for rpt in reports %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+          <a href="{{ url_for('report_details', scan_id=rpt.job_id) }}">
+            {{ rpt.title }}
+          </a>
+          <small class="text-muted">— {{ rpt.date }}</small>
+        </div>
+        <span class="badge 
+          {{ 'bg-success' if rpt.status=='finished' else 'bg-secondary' }}">
+          {{ rpt.status }}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
 {% endblock %}

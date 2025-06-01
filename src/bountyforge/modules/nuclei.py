@@ -25,6 +25,7 @@ class NucleiModule(Module):
         exclude: List[str] = None,
         additional_flags: List[str] = None,
         templates_dir: str = "",
+        rate_limit: int = 20,
         **kwargs
     ) -> None:
         """
@@ -46,7 +47,8 @@ class NucleiModule(Module):
             target=target,
             target_type=target_type,
             exclude=exclude,
-            additional_flags=additional_flags
+            additional_flags=additional_flags,
+            rate_limit=rate_limit
         )
         self.templates_dir = templates_dir
 
@@ -55,7 +57,7 @@ class NucleiModule(Module):
         Construct the nuclei command based on target and configuration.
         """
         cmd = super()._build_base_command()
-        cmd += ["-silent", "-j", "-disable-update-check"]
+        cmd += ["-silent", "-j", "-disable-update-check", "-fr"]
 
         match self.target_type:
             case TargetType.FILE:
@@ -88,31 +90,29 @@ class NucleiModule(Module):
         if self.exclude:
             cmd.extend(["-exclude-hosts", ",".join(self.exclude)])
 
+        cmd += ["-rate-limit", str(self.rate_limit)]
         logger.info(f"Command: {cmd}")
         return cmd
 
-    def _post_run(
-        self, target_str: str,
-        result: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Parse nuclei JSON output (if any) or return raw output.
-        """
-        output = result.get("output", "")
-        # if JSON mode, try to parse each line as JSON
-        if self.scan_type == ScanType.RECON and output:
-            try:
-                import json
-                parsed = [
-                    json.loads(line) for line
-                    in output.splitlines()
-                    if line.strip()
-                ]
-                return {"results": parsed}
-            except Exception:
-                # fallback to raw
-                return {"output": output}
-        return result
+    # def _post_run(
+    #     self, target_str: str,
+    #     result: Dict[str, Any]
+    # ) -> Dict[str, Any]:
+    #     """
+    #     Parse nuclei JSON output (if any) or return raw output.
+    #     """
+    #     output = result.get("output", "")
+    #     if output:
+    #         try:
+    #             parsed = [
+    #                 json.loads(line) for line
+    #                 in output.splitlines()
+    #                 if line.strip()
+    #             ]
+    #             return {"parsed": parsed}
+    #         except Exception:
+    #             return {"result": output}
+    #     return result
 
     def _validate_templates(self):
         """

@@ -3,6 +3,7 @@ import logging
 import subprocess
 import re
 from typing import Any, Dict, List, Union, Optional
+from urllib.parse import urlparse
 
 from bountyforge.core.module_base import Module, TargetType, ScanType
 
@@ -22,8 +23,10 @@ class FfufModule(Module):
         target: Union[str, List[str]],
         target_type: TargetType = TargetType.SINGLE,
         scan_type: ScanType = ScanType.DIRECTORY,
-        wordlist: str = "./wordlists/common.txt",
+        wordlist: str = "./wordlists/web-content/common.txt",
         additional_flags: List[str] = None,
+        rate_limit: int = 20,
+        protocol: Optional[str] = None,
         **kwargs
     ) -> None:
         super().__init__(
@@ -31,23 +34,37 @@ class FfufModule(Module):
             target=target,
             target_type=target_type,
             additional_flags=additional_flags,
+            rate_limit=rate_limit
         )
         self.wordlist = wordlist
+        self.protocol = protocol
 
     def _build_command(self, target_str: str) -> List[str]:
+        parsed = urlparse(target_str) if "://" in target_str else None
+        if parsed and parsed.scheme:
+            scheme = parsed.scheme
+            host = parsed.netloc
+        else:
+            scheme = self.protocol or "http"
+            host = target_str
+
         cmd = [self._resolve_binary(self.binary_name)]
         cmd += ["-w", self.wordlist]
-        cmd += ["-of", "json", "-o", "-"]
-        cmd += ["-silent"]
+        cmd += ["-of", "json", "-json"]
+        cmd += ["-s"]
 
         if self.scan_type == ScanType.SUBDOMAIN:
-            # поддомен через Host: FUZZ.target
-            cmd += ["-u", f"https://{target_str}"]
-            cmd += ["-H", f"Host: FUZZ.{target_str}"]
+            # Host: FUZZ.target
+            url_base = f"{scheme}://{host}"
+            cmd += ["-u", url_base]
+            cmd += ["-H", f"'Host: FUZZ.{host}'"]
         else:
-            # директории /FUZZ
-            cmd += ["-u", f"https://{target_str}/FUZZ"]
+            # /FUZZ
+            url_base = f"{scheme}://{host}/FUZZ"
+            cmd += ["-u", url_base]
+            cmd += ["-recursion", "-recursion-depth", "2"]
 
+        cmd += ["-r"]
         if self.additional_flags:
             cmd += self.additional_flags
 
@@ -79,35 +96,54 @@ class FfufModule(Module):
                 all_results.append(record)
 
                 if res.get("success"):
-                    try:
-                        data = json.loads(res["output"])
-                        for e in data.get("results", []):
-                            parsed = {
-                                "target":    host,
+                    for line in res["output"].splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                            all_parsed.append({
+                                "target": host,
                                 "scan_type": self.scan_type.value,
-                                "url":        e.get("url"),
-                                "status":     e.get("status"),
-                                "length":     e.get("length")
-                            }
-                            all_parsed.append(parsed)
-                    except Exception as e:
-                        logger.exception(
-                            f"[FfufModule] JSON parse error on {host}: {e}"
-                        )
+                                "url":     obj.get("url"),
+                                "status":  obj.get("status"),
+                                "length":  obj.get("length"),
+                            })
+                        # data = json.loads(res["output"])
+                        # for e in data.get("results", []):
+                        #     parsed = {
+                        #         "target": host,
+                        #         "scan_type": self.scan_type.value,
+                        #         "url": e.get("url"),
+                        #         "status": e.get("status"),
+                        #         "length": e.get("length")
+                        #     }
+                        #     all_parsed.append(parsed)
+                        except json.JSONDecodeError:
+                            # fallback: plain-text path
+                            all_parsed.append({
+                                "target": host,
+                                "scan_type": self.scan_type.value,
+                                "path": line
+                            })
+                        except Exception as e:
+                            logger.exception(
+                                f"[FfufModule] JSON parse error on {host}: {e}"
+                            )
 
             except Exception as e:
                 logger.exception(f"[FfufModule] Exception on {host}: {e}")
                 all_results.append({
-                    "target":    host,
+                    "target": host,
                     "scan_type": self.scan_type.value,
-                    "error":     str(e),
-                    "success":   False
+                    "error": str(e),
+                    "success": False
                 })
 
         return {
             "scan_type": self.scan_type.value,
-            "result":    all_results,
-            "parsed":    all_parsed
+            "result": all_results,
+            "parsed": all_parsed
         }
 
     @classmethod

@@ -61,6 +61,7 @@ class Module():
         exclude: List[str] = None,
         additional_flags: List[str] = None,
         headers: dict = None,
+        rate_limit: int = 20
     ) -> None:
         """
         Initialize the module
@@ -73,9 +74,11 @@ class Module():
         self.scan_type = scan_type
         self.target = target
         self.target_type = target_type
-        self.additional_flags = additional_flags or []
-        self.headers = headers or {}
-        self.exclude = exclude or []
+        self.additional_flags = additional_flags\
+            if additional_flags is not None else []
+        self.headers = headers if headers is not None else {}
+        self.exclude = exclude if exclude is not None else []
+        self.rate_limit = rate_limit
 
     def _prepare_target(self) -> str:
         """

@@ -22,6 +22,7 @@ class NmapModule(Module):
         scan_type: ScanType = ScanType.DEFAULT,
         exclude: List[str] = None,
         additional_flags: List[str] = None,
+        rate_limit: int = 20,
         **kwargs
     ) -> None:
         # check for unexpected args
@@ -36,7 +37,8 @@ class NmapModule(Module):
             target=target,
             target_type=target_type,
             exclude=exclude,
-            additional_flags=additional_flags
+            additional_flags=additional_flags,
+            rate_limit=rate_limit
         )
 
     def _build_command(self, target_str: str) -> List[str]:
@@ -64,11 +66,12 @@ class NmapModule(Module):
                 command.append(target_str)
 
         if self.additional_flags:
-            command.append(self.additional_flags)
+            command.extend(self.additional_flags)
 
         if self.exclude:
             command.extend(["--exclude", ",".join(self.exclude)])
 
+        command += ["-min-rate", str(self.rate_limit)]
         logger.info(f"Command: {command}")
         return command
 
@@ -80,19 +83,33 @@ class NmapModule(Module):
         match = re.search(r'Nmap version\s+(\d+\.\d+(?:\.\d+)?)', output)
         return match.group(1) if match else "unknown"
 
-    def _parse_output(self, output: str) -> Dict[str, Any]:
+    def _parse_output(self, output: str) -> List[Dict[str, Any]]:
         """
         Parse output from Nmap scan
         """
         lines = output.splitlines()
-        results = []
+        results: List[Dict[str, Any]] = []
         port_line_re = re.compile(r'^(\d+/\w+)\s+(\w+)\s+(\S+)\s*(.*)$')
+
+        report_re = re.search(
+            r'Nmap scan report for\s+'
+            r'(?P<name>\S+)'
+            r'(?: \((?P<ip>\d+\.\d+\.\d+\.\d+)\))?',
+            output
+        )
+        if report_re:
+            name = report_re.group('name')
+            ip   = report_re.group('ip') or report_re.group('name')
+        else:
+            name = ip = None
 
         for line in lines:
             m = port_line_re.match(line.strip())
             if m:
                 port, state, service, extra = m.groups()
                 entry = {
+                    "host": name,
+                    "ip": ip,
                     "port": port,
                     "state": state,
                     "service": service,

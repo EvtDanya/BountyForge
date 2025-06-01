@@ -134,7 +134,7 @@ Authorization: Bearer token"></textarea>
                 <label class="form-check-label" for="tool_subfinder">Subfinder</label>
               </div>
               <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="tool_subdomainbruteforce" name="tools" value="subdomainbruteforce">
+                <input class="form-check-input" type="checkbox" id="tool_subdomainbruteforce" name="tools" value="ffuf_subdomainbruteforce">
                 <label class="form-check-label" for="tool_subdomainbruteforce">Subdomain Bruteforce</label>
               </div>
               <div class="form-check form-check-inline">
@@ -146,8 +146,8 @@ Authorization: Bearer token"></textarea>
                 <label class="form-check-label" for="tool_httpx">Httpx</label>
               </div>
               <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="tool_gobuster" name="tools" value="gobuster">
-                <label class="form-check-label" for="tool_gobuster">Directory Bruteforce</label>
+                <input class="form-check-input" type="checkbox" id="tool_ffuf" name="tools" value="ffuf_directorybruteforce">
+                <label class="form-check-label" for="tool_ffuf">Directory Bruteforce</label>
               </div>
               <div class="form-check form-check-inline">
                 <input class="form-check-input" type="checkbox" id="tool_nuclei" name="tools" value="nuclei">
@@ -342,7 +342,7 @@ Authorization: Bearer token"></textarea>
       const toolSubfinder = document.getElementById('tool_subfinder');
       const toolSubdomainBruteforce = document.getElementById('tool_subdomainbruteforce');
       const toolHttpx = document.getElementById('tool_httpx');
-      const toolGobuster = document.getElementById('tool_gobuster');
+      const toolFfuf = document.getElementById('tool_ffuf');
       const toolNuclei = document.getElementById('tool_nuclei');
       // const nmapSettings = document.getElementById('nmap_settings');
       // const subfinderSettings = document.getElementById('subfinder_settings');

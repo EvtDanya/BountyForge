@@ -11,14 +11,6 @@
       </tr>
     </thead>
     <tbody>
-      <!-- {% for record in history %}
-      <tr>
-        <td>{{ record.target }}</td>
-        <td>{{ record.tool }}</td>
-        <td>{{ record.result }}</td>
-        <td>{{ record.timestamp }}</td>
-      </tr>
-      {% endfor %} -->
       {% for job in history %}
         <tr>
           <td><a href="{{ url_for('scan_details', scan_id=job.job_id) }}">{{ job.job_id }}</a></td>

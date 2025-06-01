@@ -63,8 +63,8 @@ class BackendBountyForge(BaseApp):
     frontend_host: str = "localhost"
     threads: int = 1
     timeout: int = 120
-    rate_limit: int = "20"
-    project_version: str = "0.1.5"
+    rate_limit: int = 20
+    project_version: str = "0.2.1"
     abort_on_error: bool = False
 
     def __post_init__(self):

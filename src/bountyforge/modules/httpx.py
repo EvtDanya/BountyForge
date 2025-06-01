@@ -24,6 +24,7 @@ class HttpxModule(Module):
         scan_type: ScanType = ScanType.RECON,
         exclude: List[str] = None,
         additional_flags: List[str] = None,
+        rate_limit: int = 20,
         headers: dict = None,
         **kwargs
     ) -> None:
@@ -40,7 +41,8 @@ class HttpxModule(Module):
             target_type=target_type,
             exclude=exclude,
             additional_flags=additional_flags,
-            headers=headers
+            headers=headers,
+            rate_limit=rate_limit
         )
 
     def _build_command(self, target_str: str) -> List[str]:
@@ -75,7 +77,7 @@ class HttpxModule(Module):
                 command.extend(["-u", target_str])
 
         if self.additional_flags:
-            command.append(self.additional_flags)
+            command.extend(self.additional_flags)
 
         if self.exclude:
             command.extend(["-exclude", ",".join(self.exclude)])

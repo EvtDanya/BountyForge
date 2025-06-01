@@ -176,7 +176,7 @@ def start_scan():
     # Здесь запускается фоновая задача, передаём только valid
     # task = run_scan_task.delay({ **data, "target": valid })
 
-    job = run_scan_task.delay({**data, "target": valid})
+    job = run_scan_task.delay({**data, "target": valid}, asdict(settings))
     mongo = MongoClient(settings.backend.mongo_url)
     db = mongo.get_default_database()
     db.scan_jobs.insert_one({
@@ -241,6 +241,43 @@ def get_scan_results(job_id):
     )
     results = list(cursor)
     return jsonify(results), 200
+
+
+@config_api.route("/api/reports", methods=['GET'])
+@jwt_required()
+def reports():
+    # Берём все jobs из БД (или только завершённые)
+    client = MongoClient(settings.backend.mongo_url)
+    db = client.get_default_database()
+    jobs = db.scan_jobs.find({}, {"_id": 0, "job_id": 1, "timestamp": 1, "status": 1}).sort("timestamp", -1)
+    reports = [
+        {
+          "job_id": job["job_id"],
+          "title":      f"Scan {job['job_id']}",
+          "date":       job["timestamp"].strftime("%Y-%m-%d"),
+          "status":     job["status"]
+        }
+        for job in jobs
+    ]
+    return jsonify(reports), 200
+
+
+@config_api.route('/api/report/<job_id>', methods=['GET'])
+@jwt_required()
+def get_scan_report(job_id):
+    """
+    Возвращает JSON с полным отчётом скана по job_id.
+    """
+    mongo = MongoClient(settings.backend.mongo_url)
+    db = mongo.get_default_database()
+    job = db.scan_results.find_one(
+        {"job_id": job_id},
+        {"_id": 0}
+    )
+    if not job:
+        return jsonify({"error": "Report not found"}), 404
+
+    return jsonify(job)
 
 
 @config_api.route("/api/scan/stream/<job_id>")

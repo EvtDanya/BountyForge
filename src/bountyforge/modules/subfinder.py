@@ -21,6 +21,7 @@ class SubfinderModule(Module):
         target_type: TargetType = TargetType.SINGLE,
         scan_type: ScanType = ScanType.RECON,
         additional_flags: List[str] = None,
+        rate_limit: int = 20,
         **kwargs
     ) -> None:
         # check for unexpected args
@@ -34,7 +35,8 @@ class SubfinderModule(Module):
             scan_type=scan_type,
             target=target,
             target_type=target_type,
-            additional_flags=additional_flags
+            additional_flags=additional_flags,
+            rate_limit=rate_limit
         )
 
     def _build_command(self, target_str: str) -> List[str]:
@@ -57,7 +59,7 @@ class SubfinderModule(Module):
                 command.extend(["-d", target_str])
 
         if self.additional_flags:
-            command.append(self.additional_flags)
+            command.extend(self.additional_flags)
 
         logger.info(f"Command: {command}")
         return command

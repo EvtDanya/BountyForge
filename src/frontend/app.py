@@ -162,11 +162,41 @@ def scan_history():
 @app.route("/reports")
 @login_required
 def reports():
-    dummy_reports = [
-        {"report_id": 1, "title": "Report for 1", "date": "2025-04-01"},
-        {"report_id": 2, "title": "Report for test.com", "date": "2025-04-02"}
-    ]
-    return render_template("reports.html", reports=dummy_reports)
+    resp = requests.get(
+        f"{INTERNAL_BACKEND_URL}/api/reports",
+        headers={"Authorization": "Bearer " + session['jwt_token']},
+        timeout=15
+    )
+    if not resp.json():
+        flash("Reports not found", "danger")
+        return redirect(url_for("scan_history"))
+    reports = resp.json()
+    logger.info(reports)
+    return render_template("reports.html", reports=reports)
+
+
+@app.route('/report/<scan_id>')
+@login_required
+def report_details(scan_id):
+    resp = requests.get(
+        f"{INTERNAL_BACKEND_URL}/api/report/{scan_id}",
+        headers={"Authorization": "Bearer " + session['jwt_token']},
+        timeout=15
+    )
+    if resp.status_code == 404:
+        flash("Report not found", "danger")
+        return redirect(url_for("scan_history"))
+    job = resp.json()
+
+    return render_template(
+        'report_details.html',
+        scan_id=scan_id,
+        status=job.get("status", "unknown"),
+        targets=job.get("targets", []),
+        initiated=job.get("timestamp"),
+        api_scan_meta_url=f"{BACKEND_URL}/api/scan/{scan_id}",
+        api_report_url=f"{BACKEND_URL}/api/report/{scan_id}",
+    )
 
 
 @app.route('/scan/<scan_id>')
