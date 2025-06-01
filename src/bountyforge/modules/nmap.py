@@ -99,7 +99,7 @@ class NmapModule(Module):
         )
         if report_re:
             name = report_re.group('name')
-            ip   = report_re.group('ip') or report_re.group('name')
+            ip = report_re.group('ip') or report_re.group('name')
         else:
             name = ip = None
 

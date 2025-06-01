@@ -109,16 +109,6 @@ class FfufModule(Module):
                                 "status":  obj.get("status"),
                                 "length":  obj.get("length"),
                             })
-                        # data = json.loads(res["output"])
-                        # for e in data.get("results", []):
-                        #     parsed = {
-                        #         "target": host,
-                        #         "scan_type": self.scan_type.value,
-                        #         "url": e.get("url"),
-                        #         "status": e.get("status"),
-                        #         "length": e.get("length")
-                        #     }
-                        #     all_parsed.append(parsed)
                         except json.JSONDecodeError:
                             # fallback: plain-text path
                             all_parsed.append({

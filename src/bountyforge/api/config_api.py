@@ -172,9 +172,7 @@ def start_scan():
             f"Some targets are invalid and will be skipped: {invalid}"
         )
 
-    #! TODO: exclude validation + usage
-    # Здесь запускается фоновая задача, передаём только valid
-    # task = run_scan_task.delay({ **data, "target": valid })
+    # TODO: exclude validation + usage
 
     job = run_scan_task.delay({**data, "target": valid}, asdict(settings))
     mongo = MongoClient(settings.backend.mongo_url)
@@ -249,13 +247,21 @@ def reports():
     # Берём все jobs из БД (или только завершённые)
     client = MongoClient(settings.backend.mongo_url)
     db = client.get_default_database()
-    jobs = db.scan_jobs.find({}, {"_id": 0, "job_id": 1, "timestamp": 1, "status": 1}).sort("timestamp", -1)
+    jobs = db.scan_jobs.find(
+        {},
+        {
+            "_id": 0,
+            "job_id": 1,
+            "timestamp": 1,
+            "status": 1
+        }
+    ).sort("timestamp", -1)
     reports = [
         {
           "job_id": job["job_id"],
-          "title":      f"Scan {job['job_id']}",
-          "date":       job["timestamp"].strftime("%Y-%m-%d"),
-          "status":     job["status"]
+          "title": f"Scan {job['job_id']}",
+          "date": job["timestamp"].strftime("%Y-%m-%d"),
+          "status": job["status"]
         }
         for job in jobs
     ]
@@ -266,7 +272,7 @@ def reports():
 @jwt_required()
 def get_scan_report(job_id):
     """
-    Возвращает JSON с полным отчётом скана по job_id.
+    Returns the full data for report with a given job_id
     """
     mongo = MongoClient(settings.backend.mongo_url)
     db = mongo.get_default_database()

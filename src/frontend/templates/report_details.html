@@ -76,7 +76,7 @@ async function loadReport() {
   badge.textContent = status.toUpperCase();
   badge.classList.add(status === 'finished' ? 'bg-success' : 'bg-warning');
 
-  // targets (из results.httpx.parsed.host/path)
+  // targets (results.httpx.parsed.host/path)
   const tlist = document.getElementById('targetsList');
       const entries = [];
       (data.results.httpx.parsed||[]).forEach(r=>{

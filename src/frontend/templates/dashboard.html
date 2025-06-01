@@ -80,17 +80,10 @@
             <div class="mb-3">
               <label for="target_type" class="form-label">Target Type:</label>
               <select class="form-select" id="target_type" name="target_type">
-                <!-- <option value="single">Single</option> -->
                 <option value="multiple">Single/Multiple</option>
                 <option value="file">File (upload .txt)</option>
               </select>
             </div>
-
-            <!-- Single target input -->
-            <!-- <div class="mb-3" id="single_target_group">
-              <label for="target_single" class="form-label">Target:</label>
-              <input type="text" class="form-control" id="target_single" name="target" placeholder="example.com">
-            </div> -->
 
             <!-- Multiple targets textarea -->
             <div class="mb-3" id="multiple_target_group">
@@ -154,32 +147,6 @@ Authorization: Bearer token"></textarea>
                 <label class="form-check-label" for="tool_nuclei">Nuclei</label>
               </div>
             </div>
-
-            <!-- Nmap settings -->
-            <!-- <div id="nmap_settings" class="mb-3 tool-settings d-none">
-              <h5>Nmap Settings</h5>
-              <div class="mb-2">
-                <label class="form-label">Scan Mode:</label>
-                <select class="form-select" name="nmap_mode">
-                  <option value="default">Default</option>
-                  <option value="aggressive">Aggressive</option>
-                  <option value="full">Full</option>
-                </select>
-              </div>
-              <div class="mb-2">
-                <label class="form-label">Additional Flags:</label>
-                <input type="text" class="form-control" name="nmap_flags" placeholder="-v">
-              </div>
-            </div> -->
-
-            <!-- Subfinder settings -->
-            <!-- <div id="subfinder_settings" class="mb-3 tool-settings d-none">
-              <h5>Subfinder Settings</h5>
-              <div class="mb-2">
-                <label class="form-label">Additional Flags:</label>
-                <input type="text" class="form-control" name="subfinder_flags" placeholder="">
-              </div>
-            </div> -->
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -214,9 +181,6 @@ Authorization: Bearer token"></textarea>
       </div>
     </div>
   </div>
-
-  <!-- Scan result output -->
-  <!-- <div id="scanResult" class="mt-4"></div> -->
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -258,7 +222,6 @@ Authorization: Bearer token"></textarea>
           Results: ${d.result_count}<br>
           <small class="text-light">${when}</small>
         `;
-        // Проставляем ссылку на детали
         viewLastBtn.href = scanDetailsBase + d.job_id;
       })
       .catch(()=> {
@@ -332,33 +295,21 @@ Authorization: Bearer token"></textarea>
 
       // Scan form logic
       const targetTypeEl = document.getElementById('target_type');
-      // const singleGroup = document.getElementById('single_target_group');
       const multipleGroup = document.getElementById('multiple_target_group');
       const fileGroup = document.getElementById('file_target_group');
       const excludeEl = document.getElementById('target_exclude');
       const scanForm = document.getElementById('scanForm');
-      // const scanResult = document.getElementById('scanResult');
       const toolNmap = document.getElementById('tool_nmap');
       const toolSubfinder = document.getElementById('tool_subfinder');
       const toolSubdomainBruteforce = document.getElementById('tool_subdomainbruteforce');
       const toolHttpx = document.getElementById('tool_httpx');
       const toolFfuf = document.getElementById('tool_ffuf');
       const toolNuclei = document.getElementById('tool_nuclei');
-      // const nmapSettings = document.getElementById('nmap_settings');
-      // const subfinderSettings = document.getElementById('subfinder_settings');
 
       targetTypeEl.addEventListener('change', () => {
-        // singleGroup.classList.toggle('d-none', targetTypeEl.value !== 'single');
         multipleGroup.classList.toggle('d-none', targetTypeEl.value !== 'multiple');
         fileGroup.classList.toggle('d-none', targetTypeEl.value !== 'file');
       });
-      // targetTypeEl.dispatchEvent(new Event('change'));
-      // toolNmap.addEventListener('change', () => {
-      //   nmapSettings.classList.toggle('d-none', !toolNmap.checked);
-      // });
-      // toolSubfinder.addEventListener('change', () => {
-      //   subfinderSettings.classList.toggle('d-none', !toolSubfinder.checked);
-      // });
 
       scanForm.addEventListener('submit', async e => {
         e.preventDefault();
@@ -389,11 +340,6 @@ Authorization: Bearer token"></textarea>
             if (!raw) throw new Error('Please enter targets');
             targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
           } 
-          // else {
-          //   const raw = document.getElementById('target_single').value.trim();
-          //   if (!raw) throw new Error('Please enter a target');
-          //   targets = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          // }
 
           // Exclusions
           const exRaw = excludeEl.value.trim();
@@ -417,25 +363,12 @@ Authorization: Bearer token"></textarea>
           const tools = Array.from(scanForm.querySelectorAll('input[name="tools"]:checked'))
                              .map(chk => chk.value);
           if (!tools.length) throw new Error('Please select at least one tool');
-          // const params = {};
-          // if (tools.includes('nmap')) {
-          //   params.nmap = {
-          //     scan_type: document.querySelector('select[name="nmap_mode"]').value,
-          //     additional_flags: document.querySelector('input[name="nmap_flags"]').value
-          //   };
-          // }
-          // if (tools.includes('subfinder')) {
-          //   params.subfinder = {
-          //     additional_flags: document.querySelector('input[name="subfinder_flags"]').value
-          //   };
-          // }
 
           const payload = {
             target: targets,
             exclude: exclude,
             target_type: tt,
             tools: tools
-            // params: params
           };
 
           const res = await fetch(SCAN_URL, {
@@ -456,7 +389,6 @@ Authorization: Bearer token"></textarea>
           const result = await res.json();
           const { job_id, valid_targets, skipped_targets } = result;
           bootstrap.Modal.getInstance(document.getElementById('launchScanModal')).hide();
-          // showAlert('success', `Scan <strong>${job_id}</strong> queued successfully!`);
           const area = document.getElementById('notificationArea');
           const card = document.createElement('div');
           card.className = 'card text-white bg-success mb-3';
@@ -475,25 +407,6 @@ Authorization: Bearer token"></textarea>
             </div>`;
           area.appendChild(card);
 
-          // const evtSource = new EventSource(stream_url);
-          // evtSource.onmessage = e => {
-          //   const evt = JSON.parse(e.data);
-          //   console.log("SSE event:", evt);
-          //   switch(evt.event) {
-          //     case "started":
-          //       showAlert("info", "Scan started…");
-          //       break;
-          //     case "result":
-          //       break;
-          //     case "error":
-          //       showAlert("danger", `${evt.tool}: ${evt.msg}`);
-          //       break;
-          //     case "finished":
-          //       showAlert("success", "Scan finished");
-          //       evtSource.close();
-          //       break;
-          //   }
-          // };
         } catch (err) {
           console.error('Scan error:', err);
           showAlert('danger', `${err.message}`);

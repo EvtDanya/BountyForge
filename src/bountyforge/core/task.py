@@ -40,8 +40,10 @@ def merge_tool_opts(tool: str, options: Dict[str, Any]) -> Dict[str, Any]:
 
     # tool-specific options
     if tool == "ffuf" or tool.startswith("ffuf_"):
-        cfg["dns_wordlist"] = run_cfg.get("dns_wordlist") or default_cfg.get("dns_wordlist")
-        cfg["directories_wordlist"] = run_cfg.get("directories_wordlist") or default_cfg.get("directories_wordlist")
+        cfg["dns_wordlist"] = run_cfg.get("dns_wordlist")\
+            or default_cfg.get("dns_wordlist")
+        cfg["directories_wordlist"] = run_cfg.get("directories_wordlist")\
+            or default_cfg.get("directories_wordlist")
     if tool == "nmap":
         mode = run_cfg.get("mode") or default_cfg.get("mode")
         cfg["mode"] = mode
@@ -52,7 +54,8 @@ def merge_tool_opts(tool: str, options: Dict[str, Any]) -> Dict[str, Any]:
         cfg["exclude"] = exclude
     if tool == "nuclei":
         mode = run_cfg.get("mode") or default_cfg.get("mode")
-        templates = run_cfg.get("templates_dir") or default_cfg.get("templates_dir")
+        templates = run_cfg.get("templates_dir")\
+            or default_cfg.get("templates_dir")
         cfg["mode"] = mode
         cfg["templates_dir"] = templates
 
@@ -105,7 +108,10 @@ class ScanPipeline:
             self.results["subfinder"] = res
             hosts = [r["host"] for r in res.get("parsed", [])]
             self.targets = list(set(self.targets + hosts))
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel,
+                json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
 
         if "ffuf_subdomainbruteforce" in self.tools:
@@ -123,7 +129,10 @@ class ScanPipeline:
             self.results["ffuf_subdomainbruteforce"] = res
             hosts = [r["host"] for r in res.get("parsed", [])]
             self.targets = list(set(self.targets + hosts))
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel,
+                json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
 
         if "nmap" in self.tools:
@@ -144,7 +153,10 @@ class ScanPipeline:
                 port_num = entry.get("port", "").split('/')[0]
                 ports.append(f"{h}:{port_num}")
             self.targets = ports
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel,
+                json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
 
         if "httpx" in self.tools:
@@ -160,9 +172,15 @@ class ScanPipeline:
             )
             res = mod.run()
             self.results["httpx"] = res
-            urls = [r["url"] for r in res.get("parsed", []) if r.get("status", 0) < 400]
+            urls = [
+                r["url"] for r in res.get("parsed", [])
+                if r.get("status", 0) < 400
+            ]
             self.targets = urls
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel,
+                json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
 
         if "ffuf_directorybruteforce" in self.tools:
@@ -179,9 +197,13 @@ class ScanPipeline:
             res = mod.run()
             self.results["ffuf_directorybruteforce"] = res
             self.targets += [r.get("url") for r in res.get("parsed", [])]
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel, json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
-            logger.info(f"Targets after ffuf_directorybruteforce: {self.targets}")
+            logger.info(
+                f"Targets after ffuf_directorybruteforce: {self.targets}"
+            )
 
         if "nuclei" in self.tools:
             logger.info("[6] nuclei")
@@ -199,7 +221,10 @@ class ScanPipeline:
             )
             res = mod.run()
             self.results["nuclei"] = res
-            redis_client.publish(self.channel, json.dumps(res.get("result", [])))
+            redis_client.publish(
+                self.channel,
+                json.dumps(res.get("result", []))
+            )
             logger.info(f"raw results: {res}")
 
         return self.results
@@ -217,8 +242,19 @@ def run_scan_task(self, request: Dict[str, Any], settings_curr):
     logger.debug(f"Run options: {settings_curr}")
 
     channel = f"scan:{self.request.id}"
-    db.scan_jobs.update_one({"job_id": self.request.id}, {"$set": {"status": "running"}})
-    redis_client.publish(channel, json.dumps({"event": "started", "job_id": self.request.id}))
+    db.scan_jobs.update_one(
+        {"job_id": self.request.id},
+        {"$set": {"status": "running"}}
+    )
+    redis_client.publish(
+        channel,
+        json.dumps(
+            {
+                "event": "started",
+                "job_id": self.request.id
+            }
+        )
+    )
 
     backend = settings_curr.get("backend", {})
     pipeline = ScanPipeline(
@@ -231,7 +267,8 @@ def run_scan_task(self, request: Dict[str, Any], settings_curr):
     except Exception as e:
         logger.exception(f"Pipeline failed: {e}")
         results = {"error": str(e)}
-        status = "error" if settings.backend.abort_on_error else "finished_with_errors"
+        status = "error" if settings.backend.abort_on_error\
+            else "finished_with_errors"
 
     record = {
         "job_id": self.request.id,
@@ -240,7 +277,28 @@ def run_scan_task(self, request: Dict[str, Any], settings_curr):
         "status": status
     }
     db.scan_results.insert_one(record)
-    db.scan_jobs.update_one({"job_id": self.request.id}, {"$set": {"status": status}})
-    redis_client.publish(channel, json.dumps({"event": status, "job_id": self.request.id}))
+    db.scan_jobs.update_one(
+        {
+            "job_id": self.request.id
+        },
+        {
+            "$set": {
+                "status": status
+            }
+        }
+    )
+    redis_client.publish(
+        channel,
+        json.dumps(
+            {
+                "event": status,
+                "job_id": self.request.id
+            }
+        )
+    )
 
-    return {"job_id": self.request.id, "status": status, "results_count": len(results)}
+    return {
+        "job_id": self.request.id,
+        "status": status,
+        "results_count": len(results)
+    }

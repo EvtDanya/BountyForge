@@ -94,26 +94,6 @@ class NucleiModule(Module):
         logger.info(f"Command: {cmd}")
         return cmd
 
-    # def _post_run(
-    #     self, target_str: str,
-    #     result: Dict[str, Any]
-    # ) -> Dict[str, Any]:
-    #     """
-    #     Parse nuclei JSON output (if any) or return raw output.
-    #     """
-    #     output = result.get("output", "")
-    #     if output:
-    #         try:
-    #             parsed = [
-    #                 json.loads(line) for line
-    #                 in output.splitlines()
-    #                 if line.strip()
-    #             ]
-    #             return {"parsed": parsed}
-    #         except Exception:
-    #             return {"result": output}
-    #     return result
-
     def _validate_templates(self):
         """
         Validate PATH for templates
@@ -127,15 +107,13 @@ class NucleiModule(Module):
         Update the nuclei templates to the latest version.
         """
         logger.info("Updating nuclei templates...")
-        # if not os.path.exists(self.templates_dir):
-        #     os.makedirs(self.templates_dir)
 
         cmd = [f"{cls.binary_name}", "-update-templates"]
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=240
         )
         logger.info(result.stdout or result.stderr)
         return cls._parse_version(result.stdout or result.stderr)
