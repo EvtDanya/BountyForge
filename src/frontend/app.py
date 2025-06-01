@@ -40,20 +40,6 @@ def verify_password(username, password):
         return username
 
 
-# @app.route("/login", methods=["GET", "POST"])
-# def login():
-#     if request.method == "POST":
-#         username = request.form.get("username")
-#         password = request.form.get("password")
-#         if verify_password(username, password):
-#             session["user"] = username
-#             flash("Logged in successfully!", "success")
-#             return redirect(url_for("dashboard"))
-#         else:
-#             flash("Invalid credentials", "danger")
-#     return render_template("login.html")
-
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -138,15 +124,6 @@ def scan_settings():
     )
 
 
-# @app.route("/scan_history")
-# @login_required
-# def scan_history():
-#     dummy_history = [
-#         {"target": "example.com", "tool": "nmap", "result": "200 ports found", "timestamp": "2025-04-01 12:00"},  # noqa
-#         {"target": "test.com", "tool": "httpx", "result": "HTTP 200", "timestamp": "2025-04-02 15:30"}  # noqa
-#     ]
-#     return render_template("scan_history.html", history=dummy_history)
-
 @app.route("/scan_history")
 @login_required
 def scan_history():
@@ -212,10 +189,6 @@ def scan_details(scan_id):
         return redirect(url_for("scan_history"))
     job = resp.json()
 
-    # stream_url = f"{BACKEND_URL}/{job.get('stream_url')}"
-    # print(job)
-    # print(stream_url)
-
     return render_template(
         'scan_details.html',
         scan_id=scan_id,
@@ -231,6 +204,9 @@ def scan_details(scan_id):
 @app.route("/launch_scan")
 @login_required
 def launch_scan():
+    """
+    Launch scan page
+    """
     return render_template("launch_scan.html")
 
 
@@ -238,8 +214,7 @@ def launch_scan():
 @login_required
 def upload_targets():
     """
-    Принимает файл с именем 'target_file', разбивает по строкам
-    и возвращает JSON: { "targets": [ ... ] }
+    Split targets from file into json
     """
     if 'target_file' not in request.files:
         return jsonify({'error': 'No file part'}), 400

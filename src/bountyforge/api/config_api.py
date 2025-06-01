@@ -146,7 +146,6 @@ def start_scan():
     Endpoint for starting a scan
     """
     data = request.get_json() or {}
-    # headers = data.get('headers', {})
     logger.info(f"Received scan request: {data}")
 
     raw = data.get("target")
@@ -202,6 +201,24 @@ def start_scan():
     }), 202
 
 
+@config_api.route('/api/scan_history', methods=['GET'])
+@jwt_required()
+def scan_history():
+    mongo = MongoClient(settings.backend.mongo_url)
+    db = mongo.get_default_database()
+    docs = db.scan_jobs.find(
+        {
+            "initiator": get_jwt_identity()
+        },
+        {
+            "_id": 0
+        }
+    ).sort("timestamp", -1)
+    history = list(docs)
+
+    return jsonify(history), 200
+
+
 @config_api.route('/api/scan/<job_id>', methods=['GET'])
 @jwt_required()
 def get_scan(job_id):
@@ -217,10 +234,6 @@ def get_scan(job_id):
     logger.info(f"scan job: {job}")
     return jsonify({
         **job
-        # "stream_url": url_for(
-        #     "config_api.scan_stream",
-        #     job_id=job_id
-        # )
     }), 200
 
 
